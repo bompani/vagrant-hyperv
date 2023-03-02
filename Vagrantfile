@@ -15,18 +15,22 @@ Vagrant.configure("2") do |config|
   config.trigger.before :"VagrantPlugins::HyperV::Action::StartInstance", type: :action do |trigger|
     trigger.info = "Adding network adapter..."
     trigger.ruby do |env,machine|
-      #puts machine.config.to_yaml
-      #puts '---'
-      #puts machine.provider_config.to_yaml
+      machine.config.vm.networks.select{|network| network[0] == :private_network}.map{|network| network[1]}.each{|network|
 
-      Vagrant::Util::PowerShell.execute('bin/add-hyperv-network-adapter.ps1', [
-        '-name', '10.42.200.0',
-        '-subnet', '10.42.200.0',
-        '-prefixLength', '24',
-        '-hostAddress', '10.42.200.1', 
-        '-nat', '$False',
-        '-vmName', machine.provider_config.vmname
-      ])
+        ipAddr = IPAddr.new network[:ip]
+        subnet = ipAddr.mask network[:netmask]
+        host = subnet.succ
+        name = defined?(network[:name]) ? network[:name] : subnet.to_s
+
+        Vagrant::Util::PowerShell.execute('bin/add-hyperv-network-adapter.ps1', [
+          '-name', name,
+          '-subnet', subnet.to_s,
+          '-prefixLength', network[:netmask],
+          '-hostAddress', host.to_s, 
+          '-nat', '$False',
+          '-vmName', machine.provider_config.vmname
+        ])
+      }      
     end
   end
 
@@ -35,19 +39,27 @@ Vagrant.configure("2") do |config|
     trigger.ruby do |env,machine|
 
       if machine.provider_name == :hyperv
-        cmd = "(Get-VMNetworkAdapter -VMName '" + machine.provider_config.vmname + "' -Name '" + '10.42.200.0' + "').MacAddress"
+        machine.config.vm.networks.select{|network| network[0] == :private_network}.map{|network| network[1]}.each{|network|
+
+        ipAddr = IPAddr.new network[:ip]
+        subnet = ipAddr.mask network[:netmask]
+        host = subnet.succ
+        name = defined?(network[:name]) ? network[:name] : subnet.to_s
+
+        cmd = "(Get-VMNetworkAdapter -VMName '" + machine.provider_config.vmname + "' -Name '" + name + "').MacAddress"
         adapterMac = Vagrant::Util::PowerShell.execute_cmd(cmd)    
 
         config = VagrantPlugins::Shell::Config.new
         config.path = "./bin/configure-static-ip.ps1"
         config.args = [
           '-adapterMAC', adapterMac,
-          '-address', '10.42.200.100',
-          '-prefixLength', '24'
+          '-address', ipAddr.to_s,
+          '-prefixLength', network[:netmask]
         ]
         config.finalize!
         provisioner = VagrantPlugins::Shell::Provisioner.new(machine, config)
         provisioner.provision
+      }      
       end
     end
   end
@@ -95,7 +107,8 @@ Vagrant.configure("2") do |config|
   # Create a public network, which generally matched to bridged network.
   # Bridged networks make the machine appear as another physical device on
   # your network.
-  config.vm.network "public_network", bridge: "Default Switch"
+  config.vm.network :public_network, bridge: "Default Switch"
+  config.vm.network :private_network, ip: "10.42.200.100", netmask: "24", name: "10.42.200.0"
 
   # Share an additional folder to the guest VM. The first argument is
   # the path on the host to the actual folder. The second argument is
