@@ -39,11 +39,10 @@ if [ "$MACADDRESS" = "" ] || [ "$IP" = "" ] || [ "$NETMASK" = "" ]; then
   exit_abnormal
 fi
 
-interfaceMAC=$(echo "$MACADDRESS" | sed -r 's/-/:/g' | tr '[:upper:]' '[:lower:]')
-interface=$(ip -br link | awk "\$3 ~ /$interfaceMAC/ {print \$1}")
+interface=$(ip -br link | awk "gsub(/:/,\"\",\$3) {}; toupper(\$3) == \"$MACADDRESS\" {print \$1}")
 if [ -z "$interface" ]
 then
-  echo "Did not find interface"
+  echo "Did not find interface with MAC-Address $MACADDRESS"
   exit 1
 fi
 

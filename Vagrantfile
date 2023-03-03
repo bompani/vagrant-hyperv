@@ -108,16 +108,16 @@ Vagrant.configure("2") do |config|
       node_config.vm.box = node["box"]
       node_config.vm.hostname = node["hostname"]   
       node_config.vm.network :public_network, bridge: "Default Switch"
-      node_config.vm.network :private_network, ip: "10.42.200.100", netmask: "24", name: "10.42.200.0"
+      node_config.vm.network :private_network, ip: node["ip"], netmask: "24", name: "10.42.200.0"
       node_config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".git/"
 
-      node_config.vm.communicator = 'winrm'
+      #node_config.vm.communicator = 'winrm'
         
       node_config.vm.provider "hyperv" do |p|
         p.linked_clone = true
         p.vmname = node["hostname"]
         p.cpus = 2
-        p.memory = 4096
+        p.maxmemory = 4096
         p.vm_integration_services = {
           guest_service_interface: true,
           time_synchronization: true,
