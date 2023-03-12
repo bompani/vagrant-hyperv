@@ -5,6 +5,14 @@ module VagrantPlugins
       class HyperVNetError < Vagrant::Errors::VagrantError
         error_namespace("vagrant_hypervnet.errors")
       end
+
+      class BridgeUndefinedInPublicNetwork < HyperVNetError
+        error_key(:bridge_undefined_in_public_network)
+      end
+
+      class IpUndefinedInPrivateNetwork < VagrantError
+        error_key(:ip_undefined_in_private_network)
+      end
     end
   end
 end

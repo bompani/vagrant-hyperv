@@ -4,4 +4,17 @@ en:
         Adapter %{adapter}: %{type}%{extra}
       config:
         private_on_bad_type: |-
-          HyperV private networks can only be enabled on "private_network"        
+          HyperV private networks can only be enabled on "private_network"
+      errors:
+        bridge_undefined_in_public_network: |-
+          Network settings specified in your Vagrantfile specifies a public
+          network without a bridge. Please review the error message below and
+          update your Vagrantfile network settings:
+
+            Error: %{error}
+        ip_undefined_in_private_network: |-
+          Network settings specified in your Vagrantfile specifies a private
+          network without an IP address. Please review the error message below
+          and update your Vagrantfile network settings:
+
+            Error: %{error}

@@ -58,37 +58,28 @@ module VagrantPlugins
         return JSON.parse(output_match[1])
       end
 
-      def read_switches
-        adapters = JSON.parse(execute(:get-adapters))
-        if adapters.kind_of?(Hash)
-          adapters = Array(json)
-        end
-
-        output = execute(:get-switches)
+      def find_switch_by_name(name)
+        output = execute(:get_switch_by_name, Name: name)
         data = JSON.parse(output)
         if data.kind_of?(Hash)
           data = Array(json)
+        elsif data.kind_of?(Array)
+          data[0]
+        else
+          nil
         end
+      end
 
-        switches = {}
-        data.each do |item|
-          switch = {}
-          switch[:name] = item["Name"]
-          
-          case item["SwitchType"]
-          when "Private"
-            switch[:type] = :private
-          when "Internal"
-            switch[:type] = :internal
-          when "External"
-            switch[:type] = :external            
-            switch[:bridge] = adapters.find(|adapter| adapter["InterfaceGuid"] == item["NetAdapterInterfaceGuid"])
-          end
-
-          switches[switch[:name]] = switch
+      def find_switch_by_address(netaddr)        
+        output = execute(:get_switch_by_address, DestinationPrefix: netaddr)
+        data = JSON.parse(output)
+        if data.kind_of?(Hash)
+          data = Array(json)
+        elsif data.kind_of?(Array)
+          data[0]
+        else
+          nil
         end
-   
-        switches
       end
 
       def read_vm_mac_addresses
@@ -124,25 +115,13 @@ module VagrantPlugins
         adapters
       end
 
-      def read_network_adapters
-        output = execute(:get-adapters)
-        data = JSON.parse(output)
-        if data.kind_of?(Hash)
-          data = [] << json
+      def create_switch(type, name, ip = null, netmask = null)
+        case type
+        when :internal
+          execute(:new_switch, Name: name, SwitchType: "Internal")
+        when :private
+          execute(:new_switch, Name: name, SwitchType: "Private")
         end
-
-        adapters = {}      
-        data.each do |item|
-          adapter = {}
-          adapter[:name] = item["Name"]
-          adapter[:status] = item["Status"]
-          adapter[:ip] = item["IPAddress"]
-          adapter[:netmask] = item["PrefixLength"]
-
-          adapters[adapter[:name]] = switch
-        end
-
-        adapters
       end
 
       def enable_adapters(adapters)

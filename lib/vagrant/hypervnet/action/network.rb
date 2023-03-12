@@ -1,4 +1,8 @@
+require "ipaddr"
 require "log4r"
+
+require "vagrant/util/network_ip"
+require "vagrant/util/scoped_hash_override"
 
 module VagrantPlugins
   module HyperVNet    
@@ -83,7 +87,7 @@ module VagrantPlugins
             config[:adapter] = slot
             @logger.debug("Normalized configuration: #{config.inspect}")
 
-            # Get the VirtualBox adapter configuration
+            # Get the Hyperv adapter configuration
             adapter = send("#{type}_adapter", config)
             adapters << adapter
             @logger.debug("Adapter configuration: #{adapter.inspect}")
@@ -132,92 +136,31 @@ module VagrantPlugins
             auto_config:                     true,
             bridge:                          nil,
             mac:                             nil,
-            nic_type:                        nil,
             use_dhcp_assigned_default_route: false
           }.merge(options || {})
         end
 
         def external_adapter(config)
-          # Find the bridged interfaces that are available
-          bridgedifs = @driver.read_network_adapters.values
-          bridgedifs.delete_if { |interface| interface[:status] == "Down" || interface[:status] == "Disabled" }
-
-          # The name of the chosen bridge interface will be assigned to this
-          # variable.
-          chosen_bridge = nil
-
           if config[:bridge]
-            @logger.debug("Bridge was directly specified in config, searching for: #{config[:bridge]}")
+            @logger.debug("Searching for bridge #{config[:bridge]}")
 
-            # Search for a matching bridged interface
-            Array(config[:bridge]).each do |bridge|
-              bridge = bridge.downcase if bridge.respond_to?(:downcase)
-            interface = 
+            chosen_bridge = @driver.find_switch_by_name(config[:bridge])
+            if chosen_bridge
+              @logger.info("Bridging adapter #{config[:adapter]} to #{chosen_bridge}")
 
-              bridgedifs.each do |interface|
-                if bridge === interface[:name].downcase
-                  @logger.debug("Specific bridge found as configured in the Vagrantfile. Using it.")
-                  chosen_bridge = interface[:name]
-                  break
-                end
-              end
-              break if chosen_bridge
-            end
-
-            # If one wasn't found, then we notify the user here.
-            if !chosen_bridge
-              @env[:ui].info I18n.t("vagrant.actions.vm.bridged_networking.specific_not_found",
-                                    bridge: config[:bridge])
-            end
-          end
-
-          # If we still don't have a bridge chosen (this means that one wasn't
-          # specified in the Vagrantfile, or the bridge specified in the Vagrantfile
-          # wasn't found), then we fall back to the normal means of searching for a
-          # bridged network.
-          if !chosen_bridge
-            if bridgedifs.length == 1
-              # One bridgeable interface? Just use it.
-              chosen_bridge = bridgedifs[0][:name]
-              @logger.debug("Only one bridged interface available. Using it by default.")
+              # Given the choice we can now define the adapter we're using
+              return {
+                adapter:     config[:adapter],
+                type:        :external,
+                switch:      chosen_bridge["Name"],
+                mac_address: config[:mac]
+              }
             else
-              # More than one bridgeable interface requires a user decision, so
-              # show options to choose from.
-              @env[:ui].info I18n.t(
-                "vagrant.actions.vm.bridged_networking.available",
-                prefix: false)
-              bridgedifs.each_index do |index|
-                interface = bridgedifs[index]
-                @env[:ui].info("#{index + 1}) #{interface[:name]}", prefix: false)
-              end
-              @env[:ui].info(I18n.t(
-                "vagrant.actions.vm.bridged_networking.choice_help")+"\n")
-
-              # The range of valid choices
-              valid = Range.new(1, bridgedifs.length)
-
-              # The choice that the user has chosen as the bridging interface
-              choice = nil
-              while !valid.include?(choice)
-                choice = @env[:ui].ask(
-                  "Which interface should the network bridge to? ")
-                choice = choice.to_i
-              end
-
-              chosen_bridge = bridgedifs[choice - 1][:name]
+              raise Vagrant::Errors::NetworkNotFound, name: config[:bridge]
             end
+          else
+            raise Vagrant::Errors::BridgeUndefinedInPublicNetwork
           end
-
-          @logger.info("Bridging adapter #{config[:adapter]} to #{chosen_bridge}")
-
-          # Given the choice we can now define the adapter we're using
-          return {
-            adapter:     config[:adapter],
-            type:        :external,
-            bridge:      chosen_bridge,
-            mac_address: config[:mac],
-            nic_type:    config[:nic_type]
-          }
         end
 
         def external_network_config(config)
@@ -239,134 +182,51 @@ module VagrantPlugins
         end
 
         def internal_config(options)
-          options = {
-            auto_config: true,
-            mac:         nil,
-            nic_type:    nil,
-            type:        :static,
-          }.merge(options)
-
-          # Make sure the type is a symbol
-          options[:type] = options[:type].to_sym
-
-          if options[:type] == :dhcp && !options[:ip]
-            # Try to find a matching device to set the config ip to
-            matching_device = hostonly_find_matching_network(options)
-            if matching_device
-              options[:ip] = matching_device[:ip]
-            else
-              # Default IP is in the 20-bit private network block for DHCP based networks
-              options[:ip] = "192.168.56.1"
-            end
-          end
-
-          begin
-            ip = IPAddr.new(options[:ip])
-            if ip.ipv4?
-              options[:netmask] ||= "255.255.255.0"
-            elsif ip.ipv6?
-              options[:netmask] ||= 64
-
-              # Append a 6 to the end of the type
-              options[:type] = "#{options[:type]}6".to_sym
-            else
-              raise IPAddr::AddressFamilyError, 'unknown address family'
-            end
-
-            # Calculate our network address for the given IP/netmask
-            netaddr = IPAddr.new("#{options[:ip]}/#{options[:netmask]}")
-          rescue IPAddr::Error => e
-            raise Vagrant::Errors::NetworkAddressInvalid,
-              address: options[:ip], mask: options[:netmask],
-              error: e.message
-          end
-
-          validate_hostonly_ip!(options[:ip], @env[:machine].provider.driver)
-
-          if ip.ipv4?
-            # Verify that a host-only network subnet would not collide
-            # with a bridged networking interface.
-            #
-            # If the subnets overlap in any way then the host only network
-            # will not work because the routing tables will force the
-            # traffic onto the real interface rather than the VirtualBox
-            # interface.
-            @env[:machine].provider.driver.read_bridged_interfaces.each do |interface|
-              that_netaddr = network_address(interface[:ip], interface[:netmask])
-              if netaddr == that_netaddr && interface[:status] != "Down"
-                raise Vagrant::Errors::NetworkCollision,
-                  netaddr: netaddr,
-                  that_netaddr: that_netaddr,
-                  interface_name: interface[:name]
-              end
-            end
-          end
-
-          # Calculate the adapter IP which is the network address with
-          # the final bit + 1. Usually it is "x.x.x.1" for IPv4 and
-          # "<prefix>::1" for IPv6
-          options[:adapter_ip] ||= (netaddr | 1).to_s
-
-          dhcp_options = {}
-          if options[:type] == :dhcp
-            # Calculate the DHCP server IP and lower & upper bound
-            # Example: for "192.168.22.64/26" network range those are:
-            # dhcp_ip: "192.168.22.66",
-            # dhcp_lower: "192.168.22.67"
-            # dhcp_upper: "192.168.22.126"
-            ip_range = netaddr.to_range
-            dhcp_options[:dhcp_ip] = options[:dhcp_ip] || (ip_range.first | 2).to_s
-            dhcp_options[:dhcp_lower] = options[:dhcp_lower] || (ip_range.first | 3).to_s
-            dhcp_options[:dhcp_upper] = options[:dhcp_upper] || (ip_range.last(2).first).to_s
-          end
-
           return {
-            adapter_ip:  options[:adapter_ip],
-            auto_config: options[:auto_config],
-            ip:          options[:ip],
-            mac:         options[:mac],
-            name:        options[:name],
-            netmask:     options[:netmask],
-            nic_type:    options[:nic_type],
-            type:        options[:type]
-          }.merge(dhcp_options)
+            auto_config:                     true,
+            bridge:                          nil,
+            mac:                             nil,
+            netmask:                         "255.255.255.0",
+            type:                            :static
+      }.merge(options || {})
         end
 
         def internal_adapter(config)
-          @logger.info("Searching for matching hostonly network: #{config[:ip]}")
-          interface = hostonly_find_matching_network(config)
-
-          if !interface
-            @logger.info("Network not found. Creating if we can.")
-
-            # It is an error if a specific host only network name was specified
-            # but the network wasn't found.
-            if config[:name]
-              raise Vagrant::Errors::NetworkNotFound, name: config[:name]
-            end
-
-            # Create a new network
-            interface = hostonly_create_network(config)
-            @logger.info("Created network: #{interface[:name]}")
+          if config[type].to_sym != :static
+            raise Vagrant::Errors::NetworkTypeNotSupported, type: config[type]
+          elsif !config[:ip]
+            raise Vagrant::Errors::IpUndefinedInPrivateNetwork
           end
 
-          if config[:type] == :dhcp
-            create_dhcp_server_if_necessary(interface, config)
+          switch = nil
+          if config[:bridge]
+            @logger.debug("Searching for switch #{config[:bridge]}")
+            switch = @driver.find_switch_by_name(config[:bridge])
+          else
+            netaddr = network_address(config[:ip], config[:netmask])
+            @logger.info("Searching for matching switch: #{netaddr}")
+            switch = find_switch_by_address(netaddr)
+          end
+
+          if !switch
+            @logger.info("Switch not found. Creating if we can.")
+
+            # Create a new switch
+            switch = @driver.create_switch(:internal, config[:bridge], config[:ip], config[:netmask])
+            @logger.info("Created switch: #{switch[:name]}")
           end
 
           return {
             adapter:     config[:adapter],
-            hostonly:    interface[:name],
+            switch:      switch[:name],
             mac_address: config[:mac],
-            nic_type:    config[:nic_type],
-            type:        :hostonly
+            type:        :internal
           }
         end
 
         def internal_network_config(config)
           return {
             type:       config[:type],
-            adapter_ip: config[:adapter_ip],
             ip:         config[:ip],
             netmask:    config[:netmask]
           }
@@ -379,21 +239,30 @@ module VagrantPlugins
             netmask: "255.255.255.0",
             adapter: nil,
             mac: nil,
-            intnet: nil,
             auto_config: true
           }.merge(options || {})
         end
 
         def private_adapter(config)
-          intnet_name = config[:intnet]
-          intnet_name = "intnet" if intnet_name == true
+          switch = nil
+          if config[:bridge]
+            @logger.debug("Searching for switch #{config[:bridge]}")
+            switch = @driver.find_switch_by_name(config[:bridge])
+         end
+
+          if !switch
+            @logger.info("Switch not found. Creating if we can.")
+
+            # Create a new switch
+            switch = @drive.create_switch(:private, config[:bridge])
+            @logger.info("Created switch: #{switch[:name]}")
+          end
 
           return {
-            adapter: config[:adapter],
-            type: :intnet,
+            adapter:      config[:adapter],
+            type:        :private,
             mac_address: config[:mac],
-            nic_type: config[:nic_type],
-            intnet: intnet_name,
+            switch:      switch[:name],
           }
         end
 
@@ -415,7 +284,7 @@ module VagrantPlugins
           return {
             adapter: config[:adapter],
             type:    :nat,
-            nic_type: config[:nic_type],
+            switch:  "Default Switch"
           }
         end
 
@@ -425,7 +294,7 @@ module VagrantPlugins
 
         #-----------------------------------------------------------------
         # Misc. helpers
-        #-----------------------------------------------------------------
+        #-----------------------------------------------------------------        
         # Assigns the actual interface number of a network based on the
         # enabled NICs on the virtual machine.
         #
@@ -456,134 +325,6 @@ module VagrantPlugins
 
             # Figure out the interface number by simple lookup
             network[:interface] = adapter_to_interface[adapter[:adapter]]
-          end
-        end
-
-        #-----------------------------------------------------------------
-        # Hostonly Helper Functions
-        #-----------------------------------------------------------------
-        # This creates a host only network for the given configuration.
-        def hostonly_create_network(config)
-          @env[:machine].provider.driver.create_host_only_network(config)
-        end
-
-        # This finds a matching host only network for the given configuration.
-        def hostonly_find_matching_network(config)
-          this_netaddr = network_address(config[:ip], config[:netmask])  if config[:ip]
-
-          @env[:machine].provider.driver.read_host_only_interfaces.each do |interface|
-            return interface if config[:name] && config[:name] == interface[:name]
-
-            #if a config name is specified, we should only look for that.
-            if config[:name].to_s != ""
-              next
-            end
-
-            if interface[:ip] != ""
-              return interface if this_netaddr == \
-                network_address(interface[:ip], interface[:netmask])
-            end
-
-            if interface[:ipv6] != ""
-              return interface if this_netaddr == \
-                network_address(interface[:ipv6], interface[:ipv6_prefix])
-            end
-          end
-
-          nil
-        end
-
-        # Validates the IP used to configure the network is within the allowed
-        # ranges. It only validates if the network configuration file exists.
-        # This was introduced in 6.1.28 so previous version won't have restrictions
-        # placed on the valid ranges
-        def validate_hostonly_ip!(ip, driver)
-          return if Gem::Version.new(driver.version) < HOSTONLY_VALIDATE_VERSION ||
-                    (
-                      Vagrant::Util::Platform.darwin? &&
-                      Gem::Version.new(driver.version) >= DARWIN_IGNORE_HOSTONLY_VALIDATE_VERSION
-                    ) ||
-                    Vagrant::Util::Platform.windows?
-
-          ip = IPAddr.new(ip.to_s) if !ip.is_a?(IPAddr)
-          valid_ranges = load_net_conf
-          return if valid_ranges.any?{ |range| range.include?(ip) }
-          raise Vagrant::Errors::VirtualBoxInvalidHostSubnet,
-            address: ip,
-            ranges: valid_ranges.map{ |r| "#{r}/#{r.prefix}" }.join(", ")
-        end
-
-        def load_net_conf
-          return HOSTONLY_DEFAULT_RANGE if !File.exist?(VBOX_NET_CONF)
-          File.readlines(VBOX_NET_CONF).map do |line|
-            line = line.strip
-            next if !line.start_with?("*")
-            line[1,line.length].strip.split(" ").map do |entry|
-              IPAddr.new(entry)
-            end
-          end.flatten.compact
-        end
-
-        #-----------------------------------------------------------------
-        # DHCP Server Helper Functions
-        #-----------------------------------------------------------------
-
-        DEFAULT_DHCP_SERVER_FROM_VBOX_INSTALL = {
-          network_name: 'HostInterfaceNetworking-vboxnet0',
-          network:      'vboxnet0',
-          ip:           '192.168.56.100',
-          netmask:      '255.255.255.0',
-          lower:        '192.168.56.101',
-          upper:        '192.168.56.254'
-        }.freeze
-
-        #
-        # When a host-only network of type: :dhcp is configured,
-        # this handles the potential creation of a vbox dhcpserver to manage
-        # it.
-        #
-        # @param [Hash<String>] interface hash as returned from read_host_only_interfaces
-        # @param [Hash<String>] config hash as returned from hostonly_config
-        def create_dhcp_server_if_necessary(interface, config)
-          existing_dhcp_server = find_matching_dhcp_server(interface)
-          if existing_dhcp_server
-            if dhcp_server_matches_config?(existing_dhcp_server, config)
-              @logger.debug("DHCP server already properly configured")
-              return
-            elsif existing_dhcp_server == DEFAULT_DHCP_SERVER_FROM_VBOX_INSTALL
-              @env[:ui].info I18n.t("vagrant.actions.vm.network.cleanup_vbox_default_dhcp")
-              @env[:machine].provider.driver.remove_dhcp_server(existing_dhcp_server[:network_name])
-            else
-              # We have an invalid DHCP server that we're not able to
-              # automatically clean up, so we need to give up and tell the user
-              # to sort out their own vbox dhcpservers and hostonlyifs
-              raise Vagrant::Errors::NetworkDHCPAlreadyAttached
-            end
-          end
-
-          @logger.debug("Creating a DHCP server...")
-          @env[:machine].provider.driver.create_dhcp_server(interface[:name], config)
-        end
-
-        # Detect when an existing DHCP server matches precisely the
-        # requested config for a hostonly interface.
-        #
-        # @param [Hash<String>] dhcp_server as found by read_dhcp_servers
-        # @param [Hash<String>] config as returned from hostonly_config
-        # @return [Boolean]
-        def dhcp_server_matches_config?(dhcp_server, config)
-          dhcp_server[:ip]    == config[:dhcp_ip]    &&
-          dhcp_server[:lower] == config[:dhcp_lower] &&
-          dhcp_server[:upper] == config[:dhcp_upper]
-        end
-
-        # Returns the existing dhcp server, if any, that is attached to the
-        # specified interface.
-        #
-        # @return [Hash<String>] dhcp_server or nil if not found
-        def find_matching_dhcp_server(interface)
-          @env[:machine].provider.driver.read_dhcp_servers.detect do |dhcp_server|
-            interface[:name] && interface[:name] == dhcp_server[:network]
           end
         end
       end

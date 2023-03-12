@@ -1,8 +1,8 @@
 require 'vagrant-hypervnet/action'
 
 module VagrantPlugins
-    module HyperVNet        
-        class Plugin < Vagrant.plugin("2")
+  module HyperVNet        
+    class Plugin < Vagrant.plugin("2")
             name "Hyper-V network configuration"
             description <<-DESC
                 This plugin installs some extensions that allows Vagrant to manage
@@ -20,6 +20,7 @@ module VagrantPlugins
               end
 
             action_hook(:hypervnet, :machine_action_start) do |hook|
+                hook.before(VagrantPlugins::HyperV::Action::Configure, Action.disable_builtin_network_configure)
                 hook.before(VagrantPlugins::HyperV::Action::StartInstance, Action.network)
             end
 
