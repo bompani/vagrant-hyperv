@@ -1,7 +1,5 @@
 require "json"
-require "log4r"
 require "vagrant/util/powershell"
-require_relative "plugin"
 
 module VagrantPlugins
   module HyperVNet   
@@ -60,30 +58,24 @@ module VagrantPlugins
 
       def find_switch_by_name(name)
         output = execute(:get_switch_by_name, Name: name)
-        data = JSON.parse(output)
-        if data.kind_of?(Hash)
-          data = Array(json)
-        elsif data.kind_of?(Array)
-          data[0]
-        else
-          nil
+        switch = JSON.parse(output)
+        if switch.kind_of?(Array)
+          switch = switch[0]
         end
+        switch
       end
 
-      def find_switch_by_address(netaddr)        
-        output = execute(:get_switch_by_address, DestinationPrefix: netaddr)
-        data = JSON.parse(output)
-        if data.kind_of?(Hash)
-          data = Array(json)
-        elsif data.kind_of?(Array)
-          data[0]
-        else
-          nil
+      def find_switch_by_address(ip_address, prefix_length)        
+        output = execute(:get_switch_by_address, DestinationPrefix: "#{ip_address}/#{prefix_length}")
+        switch = JSON.parse(output)
+        if switch.kind_of?(Array)
+          switch = switch[0]
         end
+        switch
       end
 
       def read_vm_mac_addresses
-        output = execute(:get-vm_adapters, VMName: @vmName)
+        output = execute(:get_vm_adapters, VMName: @vmName)
         data = JSON.parse(output)
         if data.kind_of?(Hash)
           data = Array(json)
@@ -98,7 +90,7 @@ module VagrantPlugins
       end
 
       def read_vm_network_adapters
-        output = execute(:get-vm_adapters, VMName: @vmName)
+        output = execute(:get_vm_adapters, VMName: @vmName)
         data = JSON.parse(output)
         if data.kind_of?(Hash)
           data = Array(json)
@@ -107,37 +99,45 @@ module VagrantPlugins
         adapters = []
         data.each do |value|
           adapter = {}
-          adapter[:switch] = v["SwitchName"]
-          adapter[:mac_address] = v["MacAddress"]
+          adapter[:name] = value["Name"]
+          adapter[:switch] = value["SwitchName"]
+          adapter[:mac_address] = value["MacAddress"]
           adapters << adapter
         end
    
         adapters
       end
 
-      def create_switch(type, name, ip = null, netmask = null)
+      def create_switch(type, name, ip_address = nil, prefix_length = nil)
+        output = nul
         case type
         when :internal
-          execute(:new_switch, Name: name, SwitchType: "Internal")
+          output = execute(:new_switch, Name: name, SwitchType: "Internal", IPAddress: ip_address, PrefixLength: prefix_length)
         when :private
-          execute(:new_switch, Name: name, SwitchType: "Private")
+          output = execute(:new_switch, Name: name, SwitchType: "Private")
         end
+
+        JSON.parse(output)
       end
 
-      def enable_adapters(adapters)
-        switches = read_switches
-        adapters.each do |adapter|
-          ipAddr = IPAddr.new adapter[:ip]
-          subnet = ipAddr.mask adapter[:netmask]
-          host = subnet.succ
-          name = defined?(adapter[:name]) ? adapter[:name] : subnet.to_s
+      def add_vm_adapter(switch)
+        output = execute(:add_vm_adapter, VMName: @vmName, SwitchName: switch)
+        data = JSON.parse(output)
 
-          @logger.debug("Configuring the VM network adapter of network: " +
-            "Name: #{name} Subnet: #{subnet.to_s} Netmask: #{adapter[:netmask]} HostIP: #{host.to_s}")
+        adapter = {}
+        adapter[:name] = data["Name"]
+        adapter[:switch] = data["SwitchName"]
+        adapter[:mac_address] = data["MacAddress"]
+   
+        adapter        
+      end
 
-          execute(:network_adapter, name: name, subnet: subnet, prefixLength: prefixLength,
-            hostAddress: hostAddress,  nat: nat, vmName: @vmName)
-        end
+      def remove_vm_adapter(name)
+        execute(:add_vm_adapter, VMName: @vmName, Name: name)        
+      end
+
+      def connect_vm_adapter(name, switch)
+        execute(:connect_vm_adapter, VMName: @vmName, Name: name, SwitchName: switch)        
       end
 
       protected

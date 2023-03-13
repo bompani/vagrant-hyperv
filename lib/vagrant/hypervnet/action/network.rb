@@ -1,7 +1,6 @@
 require "ipaddr"
 require "log4r"
 
-require "vagrant/util/network_ip"
 require "vagrant/util/scoped_hash_override"
 
 module VagrantPlugins
@@ -9,10 +8,6 @@ module VagrantPlugins
     module Action
       class Network
 
-        # Default valid range for hostonly networks
-        HOSTONLY_DEFAULT_RANGE = [IPAddr.new("192.168.56.0/21").freeze].freeze
-
-        include Vagrant::Util::NetworkIP
         include Vagrant::Util::ScopedHashOverride
 
         def initialize(app, env)
@@ -84,7 +79,6 @@ module VagrantPlugins
 
             # Get the normalized configuration for this type
             config = send("#{type}_config", options)
-            config[:adapter] = slot
             @logger.debug("Normalized configuration: #{config.inspect}")
 
             # Get the Hyperv adapter configuration
@@ -105,13 +99,12 @@ module VagrantPlugins
             adapters.each do |adapter|
               env[:ui].detail(I18n.t(
                 "hypervnet.network_adapter",
-                adapter: adapter[:adapter].to_s,
                 type: adapter[:type].to_s,
-                extra: "",
+                switch: adapter[:switch].to_s
               ))
             end
             
-            @driver.enable_adapters(adapters)
+            enable_adapters(adapters)
           end          
 
           # Continue the middleware chain.
@@ -146,11 +139,10 @@ module VagrantPlugins
 
             chosen_bridge = @driver.find_switch_by_name(config[:bridge])
             if chosen_bridge
-              @logger.info("Bridging adapter #{config[:adapter]} to #{chosen_bridge}")
+              @logger.info("Bridging adapter to #{chosen_bridge}")
 
               # Given the choice we can now define the adapter we're using
               return {
-                adapter:     config[:adapter],
                 type:        :external,
                 switch:      chosen_bridge["Name"],
                 mac_address: config[:mac]
@@ -188,7 +180,7 @@ module VagrantPlugins
             mac:                             nil,
             netmask:                         "255.255.255.0",
             type:                            :static
-      }.merge(options || {})
+          }.merge(options || {})
         end
 
         def internal_adapter(config)
@@ -199,27 +191,28 @@ module VagrantPlugins
           end
 
           switch = nil
+          netaddr = IPAddr.new(config[:ip]).mask(config[:netmask])            
           if config[:bridge]
             @logger.debug("Searching for switch #{config[:bridge]}")
-            switch = @driver.find_switch_by_name(config[:bridge])
+            switch = @driver.find_switch_by_name(config[:bridge])            
           else
-            netaddr = network_address(config[:ip], config[:netmask])
-            @logger.info("Searching for matching switch: #{netaddr}")
-            switch = find_switch_by_address(netaddr)
+            @logger.info("Searching for matching switch: #{netaddr.to_s}")
+            switch = find_switch_by_address(netaddr.to_s, netaddr.prefix)
           end
 
           if !switch
             @logger.info("Switch not found. Creating if we can.")
+            if !config[:bridge]
+              config[:bridge] netaddr.to_s
+            end
 
             # Create a new switch
-            switch = @driver.create_switch(:internal, config[:bridge], config[:ip], config[:netmask])
+            switch = @driver.create_switch(:internal, config[:bridge], netaddr.to_s, netaddr.prefix)
             @logger.info("Created switch: #{switch[:name]}")
           end
 
           return {
-            adapter:     config[:adapter],
             switch:      switch[:name],
-            mac_address: config[:mac],
             type:        :internal
           }
         end
@@ -237,8 +230,6 @@ module VagrantPlugins
             type: "static",
             ip: nil,
             netmask: "255.255.255.0",
-            adapter: nil,
-            mac: nil,
             auto_config: true
           }.merge(options || {})
         end
@@ -259,9 +250,7 @@ module VagrantPlugins
           end
 
           return {
-            adapter:      config[:adapter],
             type:        :private,
-            mac_address: config[:mac],
             switch:      switch[:name],
           }
         end
@@ -282,7 +271,6 @@ module VagrantPlugins
 
         def nat_adapter(config)
           return {
-            adapter: config[:adapter],
             type:    :nat,
             switch:  "Default Switch"
           }
@@ -294,7 +282,29 @@ module VagrantPlugins
 
         #-----------------------------------------------------------------
         # Misc. helpers
-        #-----------------------------------------------------------------        
+        #-----------------------------------------------------------------     
+            
+        def enable_adapters(adapters)
+          vm_adapters = @driver.read_vm_network_adapters
+          adapters.each do |adapter|
+            vm_adapter = vm_adapters.find{|vm_adapter|
+              !vm_adapter.has_key?(:switch) || vm_adapter[:switch] == adapter[:switch]}
+            if !vm_adapter
+              @logger.info("Adapter not found. Creating if we can.")
+              vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
+              @logger.info("Created adapter: #{vm_adapter[:name]}")
+            else
+              vm_adapters = vm_adapters.delete(vm_adapter)
+            end
+            connect_vm_adapter(vm_adapter[:name], vm_adapter[:switch])
+          end
+
+          vm_adapters.each do |vm_adapters|
+            @logger.info("Removing adapter: #{vm_adapter[:name]}")
+            @driver.remove_vm_adapter(vm_adapter[:name])
+          end
+        end
+
         # Assigns the actual interface number of a network based on the
         # enabled NICs on the virtual machine.
         #
@@ -304,27 +314,17 @@ module VagrantPlugins
         # The networks are modified in place by adding an ":interface"
         # field to each.
         def assign_interface_numbers(networks, adapters)
-          current = 0
-          adapter_to_interface = {}
 
-          # Make a first pass to assign interface numbers by adapter location
-          vm_adapters = @env[:machine].provider.driver.read_network_interfaces
-          vm_adapters.sort.each do |number, adapter|
-            if adapter[:type] != :none
-              # Not used, so assign the interface number and increment
-              adapter_to_interface[number] = current
-              current += 1
-            end
+          vm_adapters = @driver.read_vm_network_adapters
+          vm_adapters.each.with_index(0) do |vm_adapter, index|
+            vm_adapter[:interface] = index
           end
 
-          # Make a pass through the adapters to assign the :interface
-          # key to each network configuration.
           adapters.each_index do |i|
             adapter = adapters[i]
             network = networks[i]
-
-            # Figure out the interface number by simple lookup
-            network[:interface] = adapter_to_interface[adapter[:adapter]]
+            vm_adapter = vm_adapters.find{|vm_adapter| vm_adapter[:switch] == adapter[:switch]}
+            network[:interface] = vm_adapter[:interface]
           end
         end
       end

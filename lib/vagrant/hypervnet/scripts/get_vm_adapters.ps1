@@ -3,4 +3,5 @@ param (
     [string]$VMName
 )
 
-Get-VMNetworkAdapter -VMName $VMName | Select-Object -Property "SwitchName", "MacAddress" | ConvertTo-Json
+Get-VMNetworkAdapter -VMName $VMName |
+    Select-Object -Property "Name", "SwitchName", "MacAddress" | ConvertTo-Json
