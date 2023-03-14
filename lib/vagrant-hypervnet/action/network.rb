@@ -299,12 +299,14 @@ module VagrantPlugins
               vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
               @logger.info("Created adapter: #{vm_adapter[:name]}")
             else
+              vm_adapter[:switch] == adapter[:switch]
               vm_adapters.delete(vm_adapter)
             end
-            @driver.connect_vm_adapter(vm_adapter[:name], vm_adapter[:switch])
+            @logger.info("Connecting adapter #{vm_adapter[:name]} to switch #{vm_adapter[:switch]}")
+            @driver.connect_vm_adapter(vm_adapter[:id], vm_adapter[:switch])
           end
 
-          vm_adapters.each do |vm_adapters|
+          vm_adapters.each do |vm_adapter|
             @logger.info("Removing adapter: #{vm_adapter[:name]}")
             @driver.remove_vm_adapter(vm_adapter[:name])
           end

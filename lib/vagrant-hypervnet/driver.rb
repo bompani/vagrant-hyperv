@@ -117,6 +117,7 @@ module VagrantPlugins
           end   
           data.each do |value|
             adapter = {}
+            adapter[:id] = value["Id"]
             adapter[:name] = value["Name"]
             adapter[:switch] = value["SwitchName"]
             adapter[:mac_address] = value["MacAddress"]
@@ -147,6 +148,7 @@ module VagrantPlugins
         data = execute(:add_vm_adapter, VMName: @vmName, SwitchName: switch)
 
         adapter = {}
+        adapter[:id] = data["Id"]
         adapter[:name] = data["Name"]
         adapter[:switch] = data["SwitchName"]
         adapter[:mac_address] = data["MacAddress"]
@@ -154,12 +156,12 @@ module VagrantPlugins
         adapter        
       end
 
-      def remove_vm_adapter(name)
-        execute(:add_vm_adapter, VMName: @vmName, Name: name)        
+      def remove_vm_adapter(id)
+        execute(:add_vm_adapter, VMName: @vmName, Id: id)        
       end
 
-      def connect_vm_adapter(name, switch)
-        execute(:connect_vm_adapter, VMName: @vmName, Name: name, SwitchName: switch)        
+      def connect_vm_adapter(id, switch)
+        execute(:connect_vm_adapter, VMName: @vmName, Id: id, SwitchName: switch)        
       end
 
       protected

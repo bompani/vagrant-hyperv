@@ -6,6 +6,6 @@ param (
 )
 
 $adapters = Get-VMNetworkAdapter -VMName $VMName |
-    Select-Object -Property "Name", "SwitchName", "MacAddress"
+    Select-Object -Property "Name", "Id", "SwitchName", "MacAddress"
 
 Write-OutputMessage $(ConvertTo-JSON $adapters)
