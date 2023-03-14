@@ -1,20 +1,50 @@
 en:
   vagrant_hypervnet:
-      network_adapter: |-
-        Adapter %{adapter}: %{type} %{switch}
-      config:
-        private_on_bad_type: |-
-          HyperV private networks can only be enabled on "private_network"
-      errors:
-        bridge_undefined_in_public_network: |-
-          Network settings specified in your Vagrantfile specifies a public
-          network without a bridge. Please review the error message below and
-          update your Vagrantfile network settings:
+    network_adapter: |-
+      Adapter %{adapter}: %{type} %{switch}
+    config:
+      private_on_bad_type: |-
+        HyperV private networks can only be enabled on "private_network"
+    network:
+      configuring: |-
+        Configuring and enabling network interfaces...
+      preparing: |-
+        Preparing network interfaces based on configuration...
+    errors:
+      bridge_undefined_in_public_network: |-
+        Network settings specified in your Vagrantfile specifies a public
+        network without a bridge. Please review the error message below and
+        update your Vagrantfile network settings:
 
-            Error: %{error}
-        ip_undefined_in_private_network: |-
-          Network settings specified in your Vagrantfile specifies a private
-          network without an IP address. Please review the error message below
-          and update your Vagrantfile network settings:
+          Error: %{error}
+      ip_undefined_in_private_network: |-
+        Network settings specified in your Vagrantfile specifies a private
+        network without an IP address. Please review the error message below
+        and update your Vagrantfile network settings:
 
-            Error: %{error}
+          Error: %{error}
+      powershell_error: |-
+        An error occurred while executing a PowerShell script. This error
+        is shown below. Please read the error message and see if this is
+        a configuration error with your system. If it is not, then please
+        report a bug.
+
+          Script: %{script}
+          Error:
+
+          %{stderr}
+      network_type_not_supported: |-
+        The %{type} network type is not supported for this box or guest.
+      network_address_invalid: |-
+        Network settings specified in your Vagrantfile define an invalid
+        IP address. Please review the error message below and update your
+        Vagrantfile network settings:
+
+          Address: %{address}
+          Netmask: %{mask}
+          Error: %{error}
+      network_not_found: |-
+        The specified host network could not be found: '%{name}.'
+        If the name specification is removed, Vagrant will create a new
+        network for you. Alternatively, please create the
+        specified network manually.

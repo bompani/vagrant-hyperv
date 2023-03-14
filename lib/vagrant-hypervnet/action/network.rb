@@ -1,7 +1,11 @@
 require "ipaddr"
 require "log4r"
+require "debug"
 
 require "vagrant/util/scoped_hash_override"
+
+require_relative "../driver"
+require_relative "../errors"
 
 module VagrantPlugins
   module HyperVNet    
@@ -16,7 +20,7 @@ module VagrantPlugins
         end
 
         def call(env)
-
+          #binding.break
           @env = env
           @driver = Driver.new(env[:machine].provider_config.vmname)
 
@@ -44,7 +48,7 @@ module VagrantPlugins
                                    :static6
                                  end
               rescue IPAddr::Error => err
-                raise Vagrant::Errors::NetworkAddressInvalid,
+                raise Errors::NetworkAddressInvalid,
                       address: options[:ip], mask: options[:netmask],
                       error: err.message
               end
@@ -65,13 +69,13 @@ module VagrantPlugins
             
             # Store it!
             @logger.info(" -- Slot #{network_adapters_config.length}: #{data[0]}")
-            network_adapters_config[] << data
+            network_adapters_config << data
           end
 
           @logger.info("Determining adapters and compiling network configuration...")
           adapters = []
           networks = []
-          network_adapters_config.each do |slot, data|
+          network_adapters_config.each.with_index(0) do |data, index|
             type    = data[0]
             options = data[1]
 
@@ -95,10 +99,11 @@ module VagrantPlugins
           if !adapters.empty?
             # Enable the adapters
             @logger.info("Enabling adapters...")
-            env[:ui].output(I18n.t("vagrant.actions.vm.network.preparing"))
+            env[:ui].output(I18n.t("vagrant_hypervnet.network.preparing"))
             adapters.each do |adapter|
+              @logger.info(adapter.inspect)
               env[:ui].detail(I18n.t(
-                "hypervnet.network_adapter",
+                "vagrant_hypervnet.network_adapter",
                 type: adapter[:type].to_s,
                 switch: adapter[:switch].to_s
               ))
@@ -118,7 +123,7 @@ module VagrantPlugins
             # Only configure the networks the user requested us to configure
             networks_to_configure = networks.select { |n| n[:auto_config] }
             if !networks_to_configure.empty?
-              env[:ui].info I18n.t("vagrant.actions.vm.network.configuring")
+              env[:ui].info I18n.t("vagrant_hypervnet.network.configuring")
               env[:machine].guest.capability(:configure_networks, networks_to_configure)
             end
           end                    
@@ -148,10 +153,10 @@ module VagrantPlugins
                 mac_address: config[:mac]
               }
             else
-              raise Vagrant::Errors::NetworkNotFound, name: config[:bridge]
+              raise Errors::NetworkNotFound, name: config[:bridge]
             end
           else
-            raise Vagrant::Errors::BridgeUndefinedInPublicNetwork
+            raise Errors::BridgeUndefinedInPublicNetwork
           end
         end
 
@@ -184,10 +189,10 @@ module VagrantPlugins
         end
 
         def internal_adapter(config)
-          if config[type].to_sym != :static
-            raise Vagrant::Errors::NetworkTypeNotSupported, type: config[type]
+          if config[:type].to_sym != :static
+            raise Errors::NetworkTypeNotSupported, type: config[:type]
           elsif !config[:ip]
-            raise Vagrant::Errors::IpUndefinedInPrivateNetwork
+            raise Errors::IpUndefinedInPrivateNetwork
           end
 
           switch = nil
@@ -197,13 +202,13 @@ module VagrantPlugins
             switch = @driver.find_switch_by_name(config[:bridge])            
           else
             @logger.info("Searching for matching switch: #{netaddr.to_s}")
-            switch = find_switch_by_address(netaddr.to_s, netaddr.prefix)
+            switch = @driver.find_switch_by_address(netaddr.to_s, netaddr.prefix)
           end
 
           if !switch
             @logger.info("Switch not found. Creating if we can.")
             if !config[:bridge]
-              config[:bridge] netaddr.to_s
+              config[:bridge] = netaddr.to_s
             end
 
             # Create a new switch
@@ -286,17 +291,17 @@ module VagrantPlugins
             
         def enable_adapters(adapters)
           vm_adapters = @driver.read_vm_network_adapters
-          adapters.each do |adapter|
-            vm_adapter = vm_adapters.find{|vm_adapter|
+          adapters.each do |adapter|           
+            vm_adapter = vm_adapters.find{|vm_adapter|         
               !vm_adapter.has_key?(:switch) || vm_adapter[:switch] == adapter[:switch]}
             if !vm_adapter
               @logger.info("Adapter not found. Creating if we can.")
               vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
               @logger.info("Created adapter: #{vm_adapter[:name]}")
             else
-              vm_adapters = vm_adapters.delete(vm_adapter)
+              vm_adapters.delete(vm_adapter)
             end
-            connect_vm_adapter(vm_adapter[:name], vm_adapter[:switch])
+            @driver.connect_vm_adapter(vm_adapter[:name], vm_adapter[:switch])
           end
 
           vm_adapters.each do |vm_adapters|

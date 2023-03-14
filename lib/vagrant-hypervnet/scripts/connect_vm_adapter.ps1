@@ -8,8 +8,4 @@ param (
 
 )
 
-Connect-VMNetworkAdapter -VMName $VMName -Name $name -SwitchName $SwitchName |
-    Select-Object -Property "Name", "SwitchName", "MacAddress" | ConvertTo-Json
-
-
-Connect-VMNetworkAdapter
+Connect-VMNetworkAdapter -VMName $VMName -Name $name -SwitchName $SwitchName

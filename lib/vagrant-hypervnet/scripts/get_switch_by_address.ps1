@@ -1,3 +1,5 @@
+#Requires -Modules VagrantMessages
+
 param (
     [parameter (Mandatory=$true)]
     [string]$DestinationPrefix
@@ -17,5 +19,4 @@ foreach($route in  Get-NetRoute | Where-Object -Property DestinationPrefix -EQ -
         }
     }
 }
-
-$switches | ConvertTo-Json
+Write-OutputMessage $(ConvertTo-JSON $switches)

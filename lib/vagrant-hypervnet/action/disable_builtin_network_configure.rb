@@ -16,12 +16,14 @@ module VagrantPlugins
           
           # Create the sentinel
           if !sentinel.file?
-          sentinel.open("w") do |f|
-              f.write(Time.now.to_i.to_s)
+            sentinel.open("w") do |f|
+                f.write(Time.now.to_i.to_s)
+            end
           end
 
           # Continue the middleware chain.
           @app.call(env)
+        end
       end
     end
   end

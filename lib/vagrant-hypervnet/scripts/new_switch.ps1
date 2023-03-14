@@ -1,3 +1,5 @@
+#Requires -Modules VagrantMessages
+
 param (
     [parameter (Mandatory=$true)]
     [string]$Name,
@@ -21,4 +23,4 @@ param (
  $switch | Select-Object -Property Name,
     @{Name='SwitchType';Expression={"$($_.SwitchType)"}},
     @{Name='NetAdapter';Expression={$switch_adapter[$_.Name]}} |
-    ConvertTo-Json
+    ConvertTo-Json |  Write-OutputMessage

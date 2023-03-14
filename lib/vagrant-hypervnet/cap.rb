@@ -1,4 +1,4 @@
-require 'vagrant-hypervnet/driver'
+require_relative 'driver'
 
 module VagrantPlugins
   module HyperVNet

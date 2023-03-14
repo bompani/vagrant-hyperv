@@ -7,13 +7,13 @@ module VagrantPlugins
       attr_reader :network_adapters
 
       def initialize        
-        @network_adapters = {}
+        @network_adapters = []
 
-        network_adapter(1, :nat)
+        network_adapter(:nat)
       end
 
-      def network_adapter(slot, type, **opts)
-        @network_adapters[slot] = [type, opts]
+      def network_adapter(type, **opts)
+        @network_adapters <<  [type, opts]
       end
 
       def finalize!

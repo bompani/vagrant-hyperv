@@ -1,5 +1,5 @@
-require 'vagrant-hypervnet/action/disable_builtin_network_configure'
-require 'vagrant-hypervnet/action/network'
+require_relative 'action/disable_builtin_network_configure'
+require_relative 'action/network'
 
 module VagrantPlugins
   module HyperVNet

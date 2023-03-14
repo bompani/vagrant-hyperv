@@ -1,6 +1,8 @@
 require "json"
 require "vagrant/util/powershell"
 
+require_relative "errors"
+
 module VagrantPlugins
   module HyperVNet   
     class Driver
@@ -39,6 +41,7 @@ module VagrantPlugins
         if error_match
           data = JSON.parse(error_match[1])
 
+          @logger.info("Error in #{path}: #{data["error"]}")
           # We have some error data.
           raise Errors::PowerShellError,
             script: path,
@@ -46,6 +49,7 @@ module VagrantPlugins
         end
 
         if r.exit_code != 0
+          @logger.info("Error in #{path}: #{r.stderr}")
           raise Errors::PowerShellError,
             script: path,
             stderr: r.stderr
@@ -57,72 +61,90 @@ module VagrantPlugins
       end
 
       def find_switch_by_name(name)
-        output = execute(:get_switch_by_name, Name: name)
-        switch = JSON.parse(output)
-        if switch.kind_of?(Array)
-          switch = switch[0]
+        data = execute(:get_switch_by_name, Name: name)
+        if data && data.kind_of?(Array)
+          data = data[0]
         end
+
+        if data
+          switch = {}
+          switch[:name] = data["Name"]          
+          switch[:type] = data["SwitchType"]
+        end
+
         switch
       end
 
       def find_switch_by_address(ip_address, prefix_length)        
-        output = execute(:get_switch_by_address, DestinationPrefix: "#{ip_address}/#{prefix_length}")
-        switch = JSON.parse(output)
-        if switch.kind_of?(Array)
-          switch = switch[0]
+        data = execute(:get_switch_by_address, DestinationPrefix: "#{ip_address}/#{prefix_length}")
+        if data && data.kind_of?(Array)
+          data = data[0]
         end
+
+        if data
+          switch = {}
+          switch[:name] = data["Name"]          
+          switch[:type] = data["SwitchType"]
+        end
+
         switch
       end
 
       def read_vm_mac_addresses
-        output = execute(:get_vm_adapters, VMName: @vmName)
-        data = JSON.parse(output)
-        if data.kind_of?(Hash)
-          data = Array(json)
-        end
-        
         adapters = {}
-        data.each.with_index(1) do |value, index|
-          adapters[index] = value["MacAddress"]
+
+        data = execute(:get_vm_adapters, VMName: @vmName)
+        if data
+          if data.kind_of?(Hash)
+            data = [] << data
+          end
+          
+          data.each.with_index(1) do |value, index|
+            adapters[index] = value["MacAddress"]
+          end
         end
-   
+
         adapters
       end
 
       def read_vm_network_adapters
-        output = execute(:get_vm_adapters, VMName: @vmName)
-        data = JSON.parse(output)
-        if data.kind_of?(Hash)
-          data = Array(json)
-        end
-
         adapters = []
-        data.each do |value|
-          adapter = {}
-          adapter[:name] = value["Name"]
-          adapter[:switch] = value["SwitchName"]
-          adapter[:mac_address] = value["MacAddress"]
-          adapters << adapter
-        end
-   
+
+        data = execute(:get_vm_adapters, VMName: @vmName)
+        if data
+          if data.kind_of?(Hash)
+            data = [] << data
+          end   
+          data.each do |value|
+            adapter = {}
+            adapter[:name] = value["Name"]
+            adapter[:switch] = value["SwitchName"]
+            adapter[:mac_address] = value["MacAddress"]
+            adapters << adapter
+          end
+        end        
         adapters
       end
 
       def create_switch(type, name, ip_address = nil, prefix_length = nil)
-        output = nul
         case type
         when :internal
-          output = execute(:new_switch, Name: name, SwitchType: "Internal", IPAddress: ip_address, PrefixLength: prefix_length)
+          data = execute(:new_switch, Name: name, SwitchType: "Internal", IPAddress: ip_address, PrefixLength: prefix_length)
         when :private
-          output = execute(:new_switch, Name: name, SwitchType: "Private")
+          data = execute(:new_switch, Name: name, SwitchType: "Private")
         end
 
-        JSON.parse(output)
+        if data
+          switch = {}
+          switch[:name] = data["Name"]          
+          switch[:type] = data["SwitchType"]
+        end
+
+        switch
       end
 
       def add_vm_adapter(switch)
-        output = execute(:add_vm_adapter, VMName: @vmName, SwitchName: switch)
-        data = JSON.parse(output)
+        data = execute(:add_vm_adapter, VMName: @vmName, SwitchName: switch)
 
         adapter = {}
         adapter[:name] = data["Name"]
