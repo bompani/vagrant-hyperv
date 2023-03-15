@@ -8,5 +8,4 @@ param (
 
 )
 
-$adapter = Get-VMNetworkAdapter -VMName $VMName | Where-Object -Property Id -EQ -Value $Id
-Connect-VMNetworkAdapter -VMName $VMName -VMNetworkAdapter $adapter -SwitchName $SwitchName
+Get-VMNetworkAdapter -VMName $VMName | Where-Object -Property Id -EQ -Value $Id | Connect-VMNetworkAdapter -SwitchName $SwitchName

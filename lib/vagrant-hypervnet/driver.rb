@@ -157,7 +157,7 @@ module VagrantPlugins
       end
 
       def remove_vm_adapter(id)
-        execute(:add_vm_adapter, VMName: @vmName, Id: id)        
+        execute(:remove_vm_adapter, VMName: @vmName, Id: id)        
       end
 
       def connect_vm_adapter(id, switch)

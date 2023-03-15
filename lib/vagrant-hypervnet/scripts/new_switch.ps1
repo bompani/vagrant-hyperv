@@ -19,8 +19,8 @@ param (
     $adapter = Get-NetAdapter | Where-Object -Property DeviceId -EQ -Value $vmAdapter.DeviceId
     New-NetIPAddress -IPAddress $IPAddress -PrefixLength $PrefixLength -InterfaceIndex $adapter.ifIndex
  }
-
- $switch | Select-Object -Property Name,
-    @{Name='SwitchType';Expression={"$($_.SwitchType)"}},
-    @{Name='NetAdapter';Expression={$switch_adapter[$_.Name]}} |
-    ConvertTo-Json |  Write-OutputMessage
+   
+Write-OutputMessage $($switch | Select-Object -Property Name,
+   @{Name='SwitchType';Expression={"$($_.SwitchType)"}},
+   @{Name='NetAdapter';Expression={$switch_adapter[$_.Name]}} |
+   ConvertTo-JSON)

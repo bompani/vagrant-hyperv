@@ -6,15 +6,15 @@ windows["hostname"] = "test-windows"
 windows["network"] = []
 windowsNet1 = {}
 windowsNet1["ip"] = "10.42.201.101"
-windowsNet1["netmask"] = "24"
+windowsNet1["netmask"] = "255.255.255.0"
 windows["network"].push(windowsNet1)
 windowsNet2 = {}
 windowsNet2["ip"] = "10.42.202.101"
-windowsNet2["netmask"] = "24"
+windowsNet2["netmask"] = "255.255.255.0"
 windows["network"].push(windowsNet2)
 windowsNet3 = {}
 windowsNet3["ip"] = "10.42.203.101"
-windowsNet3["netmask"] = "24"
+windowsNet3["netmask"] = "255.255.255.0"
 windows["network"].push(windowsNet3)
 vms.push(windows)
 
@@ -24,15 +24,15 @@ ubuntu["hostname"] = "test-ubuntu"
 ubuntu["network"] = []
 ubuntuNet1 = {}
 ubuntuNet1["ip"] = "10.42.201.102"
-ubuntuNet1["netmask"] = "24"
+ubuntuNet1["netmask"] = "255.255.255.0"
 ubuntu["network"].push(ubuntuNet1)
 ubuntuNet2 = {}
 ubuntuNet2["ip"] = "10.42.202.102"
-ubuntuNet2["netmask"] = "24"
+ubuntuNet2["netmask"] = "255.255.255.0"
 ubuntu["network"].push(ubuntuNet2)
 ubuntuNet3 = {}
 ubuntuNet3["ip"] = "10.42.203.102"
-ubuntuNet3["netmask"] = "24"
+ubuntuNet3["netmask"] = "255.255.255.0"
 ubuntu["network"].push(ubuntuNet3)
 vms.push(ubuntu)
 
@@ -42,15 +42,15 @@ centos["hostname"] = "test-centos"
 centos["network"] = []
 centosNet1 = {}
 centosNet1["ip"] = "10.42.201.103"
-centosNet1["netmask"] = "24"
+centosNet1["netmask"] = "255.255.255.0"
 centos["network"].push(centosNet1)
 centosNet2 = {}
 centosNet2["ip"] = "10.42.202.103"
-centosNet2["netmask"] = "24"
+centosNet2["netmask"] = "255.255.255.0"
 centos["network"].push(centosNet2)
 centosNet3 = {}
 centosNet3["ip"] = "10.42.203.103"
-centosNet3["netmask"] = "24"
+centosNet3["netmask"] = "255.255.255.0"
 centos["network"].push(centosNet3)
 vms.push(centos)
 

@@ -100,10 +100,11 @@ module VagrantPlugins
             # Enable the adapters
             @logger.info("Enabling adapters...")
             env[:ui].output(I18n.t("vagrant_hypervnet.network.preparing"))
-            adapters.each do |adapter|
+            adapters.each.with_index(0) do |adapter, index|
               @logger.info(adapter.inspect)
               env[:ui].detail(I18n.t(
                 "vagrant_hypervnet.network_adapter",
+                adapter: index.to_s,
                 type: adapter[:type].to_s,
                 switch: adapter[:switch].to_s
               ))
@@ -212,7 +213,7 @@ module VagrantPlugins
             end
 
             # Create a new switch
-            switch = @driver.create_switch(:internal, config[:bridge], netaddr.to_s, netaddr.prefix)
+            switch = @driver.create_switch(:internal, config[:bridge], netaddr.succ.to_s, netaddr.prefix)
             @logger.info("Created switch: #{switch[:name]}")
           end
 
@@ -297,18 +298,18 @@ module VagrantPlugins
             if !vm_adapter
               @logger.info("Adapter not found. Creating if we can.")
               vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
-              @logger.info("Created adapter: #{vm_adapter[:name]}")
+              @logger.info("Created adapter: #{vm_adapter[:id]}")
             else
               vm_adapter[:switch] == adapter[:switch]
               vm_adapters.delete(vm_adapter)
             end
-            @logger.info("Connecting adapter #{vm_adapter[:name]} to switch #{vm_adapter[:switch]}")
+            @logger.info("Connecting adapter #{vm_adapter[:id]} to switch #{vm_adapter[:switch]}")
             @driver.connect_vm_adapter(vm_adapter[:id], vm_adapter[:switch])
           end
 
           vm_adapters.each do |vm_adapter|
-            @logger.info("Removing adapter: #{vm_adapter[:name]}")
-            @driver.remove_vm_adapter(vm_adapter[:name])
+            @logger.info("Removing adapter: #{vm_adapter[:id]}")
+            @driver.remove_vm_adapter(vm_adapter[:id])
           end
         end
 
