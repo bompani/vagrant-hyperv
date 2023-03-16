@@ -19,7 +19,8 @@ module VagrantPlugins
                 ethernets_to_fix.each do |k,v|
                   machine.communicate.sudo("netplan set 'ethernets.#{k}.critical=true'")                   
                 end
-                machine.guest.capability(:reboot)                        
+                machine.communicate.sudo("netplan apply &")
+                machine.communicate.reset!                      
               end                       
             end
           end
