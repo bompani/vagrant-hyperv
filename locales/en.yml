@@ -2,6 +2,8 @@ en:
   vagrant_hypervnet:
     network_adapter: |-
       Adapter %{adapter}: %{type} %{switch}
+    network_config: |-
+      network %{network} -> %{interface}: %{type} %{ip}/%{netmask}
     config:
       private_on_bad_type: |-
         HyperV private networks can only be enabled on "private_network"

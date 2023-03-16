@@ -28,6 +28,11 @@ module VagrantPlugins
         Cap
       end
 
+      guest_capability(:linux, :fix_net_config) do
+        require_relative "vagrant-hypervnet/cap/linux/fix_net_config"
+        Cap::Linux::FixNetConfig
+      end
+
       action_hook(:hypervnet) do |hook|              
         require_relative 'vagrant-hypervnet/action'
 

@@ -125,6 +125,21 @@ module VagrantPlugins
             networks_to_configure = networks.select { |n| n[:auto_config] }
             if !networks_to_configure.empty?
               env[:ui].info I18n.t("vagrant_hypervnet.network.configuring")
+
+              networks_to_configure.each.with_index(0) do |network, index|
+                @logger.info(network.inspect)
+                env[:ui].detail(I18n.t(
+                  "vagrant_hypervnet.network_config",
+                  network: index.to_s,
+                  interface: network[:interface].to_s,
+                  type: network[:type].to_s,
+                  ip: network[:ip].to_s,
+                  netmask: network[:netmask].to_s
+                ))
+              end
+              if env[:machine].guest.capability?(:fix_net_config)
+                env[:machine].guest.capability(:fix_net_config)
+              end
               env[:machine].guest.capability(:configure_networks, networks_to_configure)
             end
           end                    
