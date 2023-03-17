@@ -33,6 +33,26 @@ module VagrantPlugins
         Cap::Linux::FixNetConfig
       end
 
+      guest_capability(:windows, :rsync_installed) do        
+        require_relative "vagrant-hypervnet/cap/windows/rsync"
+        Cap::Windows::RSync
+      end
+
+      guest_capability(:windows, :rsync_install) do
+        require_relative "vagrant-hypervnet/cap/windows/rsync"
+        Cap::Windows::RSync
+      end
+
+      guest_capability(:windows, :sshd_installed) do        
+        require_relative "vagrant-hypervnet/cap/windows/sshd"
+        Cap::Windows::Sshd
+      end
+
+      guest_capability(:windows, :sshd_install) do
+        require_relative "vagrant-hypervnet/cap/windows/sshd"
+        Cap::Windows::Sshd
+      end
+
       action_hook(:hypervnet) do |hook|              
         require_relative 'vagrant-hypervnet/action'
 

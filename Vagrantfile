@@ -62,10 +62,8 @@ Vagrant.configure("2") do |config|
       node["network"].each do |network|
         node_config.vm.network :private_network, ip: network["ip"], netmask: network["netmask"]
       end
-      node_config.vm.synced_folder ".", "/vagrant", disabled: true, type: "rsync", rsync__exclude: ".git/"
+      node_config.vm.synced_folder ".", "/vagrant", disabled: false, type: "rsync", rsync__exclude: ".git/"
 
-      #node_config.vm.communicator = 'winrm'
-        
       node_config.vm.provider "hyperv" do |p|
         p.linked_clone = true
         p.vmname = node["hostname"]
