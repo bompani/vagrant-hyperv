@@ -19,7 +19,7 @@ module VagrantPlugins
             cmds += [
               "Invoke-WebRequest -Uri '#{ssh_key_url}' -OutFile '#{ssh_key_path}'",
               "icacls '#{ssh_key_path}' /inheritance:r /grant 'Administrators:F' /grant 'SYSTEM:F'",
-              "Start-Service sshd",
+              "Start-Service -Name sshd",
               "Set-Service -Name sshd -StartupType 'Automatic'"
             ]
 
