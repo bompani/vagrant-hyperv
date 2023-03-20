@@ -55,9 +55,6 @@ module VagrantPlugins
             
             cmds = []
             cmds += [
-              '(Get-Content "$Env:ProgramData\ssh\sshd_config" | select-string -pattern ' +
-              '"Match Group administrators|AuthorizedKeysFile __PROGRAMDATA__/ssh/administrators_authorized_keys" -notmatch) | ' +
-              'Set-Content "$Env:ProgramData\ssh\sshd_config"',
               'Start-Service -Name sshd',
               'Set-Service -Name sshd -StartupType "Automatic"'
             ]
@@ -95,14 +92,13 @@ module VagrantPlugins
           def self.winssh_modify_authorized_keys(machine)
             comm = machine.communicate
             directories = fetch_guest_paths(comm)
-            home_dir = directories[:home]
+            data_dir = directories[:data]
             temp_dir = directories[:temp]
   
-            # Ensure the user's ssh directory exists
-            remote_ssh_dir = "#{home_dir}\\.ssh"
+            remote_ssh_dir = "#{data_dir}\\ssh"
             comm.execute("New-Item -Path '#{remote_ssh_dir}' -ItemType directory -Force", shell: "powershell")
             remote_upload_path = "#{temp_dir}\\vagrant-insert-pubkey-#{Time.now.to_i}"
-            remote_authkeys_path = "#{remote_ssh_dir}\\authorized_keys"
+            remote_authkeys_path = "#{remote_ssh_dir}\\administrators_authorized_keys"            
   
             keys_file = Tempfile.new("vagrant-windows-insert-public-key")
             keys_file.close
@@ -124,22 +120,22 @@ module VagrantPlugins
             EOC
           end
   
-          # Fetch user's temporary and home directory paths from the Windows guest
+          # Fetch user's temporary and data directory paths from the Windows guest
           #
           # @param [Communicator]
-          # @return [Hash] {:temp, :home}
+          # @return [Hash] {:temp, :data}
           def self.fetch_guest_paths(communicator)
             output = ""
-            communicator.execute("Write-Output $env:TEMP\nWrite-Output $env:USERPROFILE", shell: "powershell") do |type, data|
+            communicator.execute("Write-Output $env:TEMP\nWrite-Output $env:ProgramData", shell: "powershell") do |type, data|
               if type == :stdout
                 output << data
               end
             end
-            temp_dir, home_dir = output.strip.split(/[\r\n]+/)
-            if temp_dir.nil? || home_dir.nil?
+            temp_dir, data_dir = output.strip.split(/[\r\n]+/)
+            if temp_dir.nil? || data_dir.nil?
               raise Errors::PublicKeyDirectoryFailure
             end
-            {temp: temp_dir, home: home_dir}
+            {temp: temp_dir, data: data_dir}
           end
         end
       end
