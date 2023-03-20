@@ -4,6 +4,16 @@ en:
       Adapter %{adapter}: %{type} %{switch}
     network_config: |-
       network %{network} -> %{interface}: %{type} %{ip}/%{netmask}
+    ssh:
+      inserted_key: |-
+        Key inserted!
+      inserting_insecure_detected: |-
+        Vagrant insecure key detected. Vagrant will automatically replace
+        this with a newly generated keypair for better security.
+      inserting_random_key: |-
+        Inserting generated public key within guest...
+      inserting_remove_key: |-
+        Removing insecure key from the guest if it's present...
     config:
       private_on_bad_type: |-
         HyperV private networks can only be enabled on "private_network"
