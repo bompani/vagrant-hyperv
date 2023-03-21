@@ -9,11 +9,11 @@ module VagrantPlugins
       ERROR_REGEXP  = /===Begin-Error===(.+?)===End-Error===/m
       OUTPUT_REGEXP = /===Begin-Output===(.+?)===End-Output===/m
 
-      # @return [String] VM Name
-      attr_reader :vmName
+      # @return [String] VM Id
+      attr_reader :vmId
 
-      def initialize(vmName)
-        @vmName = vmName
+      def initialize(id)
+        @vmId = id
         @logger = Log4r::Logger.new("vagrant::hypervnet::driver")
       end
 
@@ -93,7 +93,7 @@ module VagrantPlugins
       def read_vm_mac_addresses
         adapters = {}
 
-        data = execute(:get_vm_adapters, VMName: @vmName)
+        data = execute(:get_vm_adapters, VmId: @vmId)
         if data
           if data.kind_of?(Hash)
             data = [] << data
@@ -110,7 +110,7 @@ module VagrantPlugins
       def read_vm_network_adapters
         adapters = []
 
-        data = execute(:get_vm_adapters, VMName: @vmName)
+        data = execute(:get_vm_adapters, VmId: @vmId)
         if data
           if data.kind_of?(Hash)
             data = [] << data
@@ -145,7 +145,7 @@ module VagrantPlugins
       end
 
       def add_vm_adapter(switch)
-        data = execute(:add_vm_adapter, VMName: @vmName, SwitchName: switch)
+        data = execute(:add_vm_adapter, VmId: @vmId, SwitchName: switch)
 
         adapter = {}
         adapter[:id] = data["Id"]
@@ -157,11 +157,11 @@ module VagrantPlugins
       end
 
       def remove_vm_adapter(id)
-        execute(:remove_vm_adapter, VMName: @vmName, Id: id)        
+        execute(:remove_vm_adapter, VmId: @vmId, Id: id)        
       end
 
       def connect_vm_adapter(id, switch)
-        execute(:connect_vm_adapter, VMName: @vmName, Id: id, SwitchName: switch)        
+        execute(:connect_vm_adapter, VmId: @vmId, Id: id, SwitchName: switch)        
       end
 
       protected

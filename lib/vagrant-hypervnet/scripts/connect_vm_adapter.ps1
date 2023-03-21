@@ -1,6 +1,6 @@
 param (
     [parameter (Mandatory=$true)]
-    [string]$VMName,
+    [string]$VmId,
     [parameter (Mandatory=$true)]
     [string]$Id,
     [parameter (Mandatory=$true)]
@@ -8,4 +8,5 @@ param (
 
 )
 
-Get-VMNetworkAdapter -VMName $VMName | Where-Object -Property Id -EQ -Value $Id | Connect-VMNetworkAdapter -SwitchName $SwitchName
+$vm = Get-VM -Id $VmId
+Get-VMNetworkAdapter -VM $vm | Where-Object -Property Id -EQ -Value $Id | Connect-VMNetworkAdapter -SwitchName $SwitchName

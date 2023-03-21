@@ -22,7 +22,7 @@ module VagrantPlugins
         def call(env)
           #binding.break
           @env = env
-          @driver = Driver.new(env[:machine].provider_config.vmname)
+          @driver = Driver.new(env[:machine].id)
 
           # Get the list of network adapters from the configuration
           network_adapters_config = env[:machine].config.hypervnet.network_adapters.dup

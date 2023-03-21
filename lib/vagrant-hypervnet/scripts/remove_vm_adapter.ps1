@@ -1,8 +1,9 @@
 param (
     [parameter (Mandatory=$true)]
-    [string]$VMName,
+    [string]$VmId,
     [parameter (Mandatory=$true)]
     [string]$Id
 )
 
-Get-VMNetworkAdapter -VMName $VMName | Where-Object -Property Id -EQ -Value $Id | Remove-VMNetworkAdapter
+$vm = Get-VM -Id $VmId
+Get-VMNetworkAdapter -VM $vm | Where-Object -Property Id -EQ -Value $Id | Remove-VMNetworkAdapter
