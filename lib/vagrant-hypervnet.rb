@@ -53,15 +53,21 @@ module VagrantPlugins
         Cap::Windows::Sshd
       end
 
+      guest_capability(:windows, :sshd_reload) do
+        require_relative "vagrant-hypervnet/cap/windows/sshd"
+        Cap::Windows::Sshd
+      end    
+
       action_hook(:hypervnet) do |hook|              
         require_relative 'vagrant-hypervnet/action'
 
         if defined?(VagrantPlugins::HyperV::Action::Configure)
           hook.before(VagrantPlugins::HyperV::Action::Configure, Action.disable_builtin_network_configure)
         end
-        if defined?(VagrantPlugins::HyperV::Action::StartInstance)            
+        if defined?(VagrantPlugins::HyperV::Action::StartInstance)       
           hook.before(VagrantPlugins::HyperV::Action::StartInstance, Action.network)
         end
+        hook.before(Vagrant::Action::Builtin::SyncedFolders, Action.ssh_server)
       end
     end
   end

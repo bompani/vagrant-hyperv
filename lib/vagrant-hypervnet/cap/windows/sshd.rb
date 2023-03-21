@@ -12,6 +12,8 @@ module VagrantPlugins
           end
 
           def self.sshd_install(machine)
+            machine.ui.detail(I18n.t("vagrant_hypervnet.ssh.install")) 
+
             machine.communicate.sudo("Add-WindowsCapability -Online -Name 'OpenSSH.Server~~~~0.0.1.0'",
               shell: :powershell, elevated: true)
               
@@ -65,6 +67,11 @@ module VagrantPlugins
               end
             end
 
+          end
+
+          def self.sshd_reload(machine)
+            machine.ui.detail(I18n.t("vagrant_hypervnet.ssh.reload")) 
+            machine.communicate.execute('Restart-Service -Name sshd', shell: :powershell)
           end
 
           def self.insecure_key?(path)

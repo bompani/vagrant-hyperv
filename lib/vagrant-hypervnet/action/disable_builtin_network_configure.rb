@@ -7,7 +7,7 @@ module VagrantPlugins
 
         def initialize(app, env)
           @app = app
-          @logger = Log4r::Logger.new("vagrant::hypervnet::network")
+          @logger = Log4r::Logger.new("vagrant::hypervnet::disable_builtin_network_configure")
         end
 
         def call(env)

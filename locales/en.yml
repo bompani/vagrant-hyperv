@@ -5,6 +5,10 @@ en:
     network_config: |-
       network %{network} -> %{interface}: %{type} %{ip}/%{netmask}
     ssh:
+      install: |-
+        Installing OpenSSH server to the VM...
+      reload: |-
+        Reloading OpenSSH server in the VM...
       inserted_key: |-
         Key inserted!
       inserting_insecure_detected: |-
@@ -14,6 +18,9 @@ en:
         Inserting generated public key within guest...
       inserting_remove_key: |-
         Removing insecure key from the guest if it's present...
+    rsync:
+      install: |-
+        Installing MSYS2 to the VM...
     config:
       private_on_bad_type: |-
         HyperV private networks can only be enabled on "private_network"
