@@ -34,11 +34,6 @@ module VagrantPlugins
 
             options = scoped_hash_override(options, :hyperv)            
 
-            # Internal network is a special type
-            if type == :private_network && options[:private]
-              type = :internal_network
-            end
-
             if !options.key?(:type) && options.key?(:ip)
               begin
                 addr = IPAddr.new(options[:ip])
@@ -57,14 +52,13 @@ module VagrantPlugins
             # Configure it
             data = nil
             if type == :private_network
-              # private_network = internal
-              data = [:internal, options]
+              if options[:private]
+                data = [:private, options]
+              else
+                data = [:internal, options]
+              end
             elsif type == :public_network
-              # public_network = external
               data = [:external, options]
-            elsif type == :internal_network
-              # internal_network = private
-              data = [:private, options]
             end
             
             # Store it!
@@ -149,8 +143,8 @@ module VagrantPlugins
           return {
             auto_config:                     true,
             bridge:                          nil,
-            mac:                             nil,
-            use_dhcp_assigned_default_route: false
+            netmask:                         "255.255.255.0",
+            type:                            :static
           }.merge(options || {})
         end
 
@@ -158,15 +152,13 @@ module VagrantPlugins
           if config[:bridge]
             @logger.debug("Searching for bridge #{config[:bridge]}")
 
-            chosen_bridge = @driver.find_switch_by_name(config[:bridge])
-            if chosen_bridge
-              @logger.info("Bridging adapter to #{chosen_bridge}")
+            switch = @driver.find_switch_by_name(config[:bridge])
+            if switch
+              @logger.info("Bridging adapter to #{switch[:name]}")
 
-              # Given the choice we can now define the adapter we're using
               return {
                 type:        :external,
-                switch:      chosen_bridge["Name"],
-                mac_address: config[:mac]
+                switch:      switch[:name],
               }
             else
               raise Errors::NetworkNotFound, name: config[:bridge]
@@ -177,20 +169,10 @@ module VagrantPlugins
         end
 
         def external_network_config(config)
-          if config[:ip]
-            options = {
-                auto_config: true,
-                mac:         nil,
-                netmask:     "255.255.255.0",
-                type:        :static
-            }.merge(config)
-            options[:type] = options[:type].to_sym
-            return options
-          end
-
           return {
-            type: :dhcp,
-            use_dhcp_assigned_default_route: config[:use_dhcp_assigned_default_route]
+            type:       config[:type],
+            ip:         config[:ip],
+            netmask:    config[:netmask]
           }
         end
 
@@ -198,9 +180,8 @@ module VagrantPlugins
           return {
             auto_config:                     true,
             bridge:                          nil,
-            mac:                             nil,
             netmask:                         "255.255.255.0",
-            type:                            :static
+            type:                            :static,
           }.merge(options || {})
         end
 
@@ -248,10 +229,10 @@ module VagrantPlugins
 
         def private_config(options)
           return {
-            type: "static",
-            ip: nil,
-            netmask: "255.255.255.0",
-            auto_config: true
+            auto_config:                     true,
+            bridge:                          options[:private],
+            netmask:                         "255.255.255.0",
+            type:                            :static,
           }.merge(options || {})
         end
 
@@ -266,7 +247,7 @@ module VagrantPlugins
             @logger.info("Switch not found. Creating if we can.")
 
             # Create a new switch
-            switch = @drive.create_switch(:private, config[:bridge])
+            switch = @driver.create_switch(:private, config[:bridge])
             @logger.info("Created switch: #{switch[:name]}")
           end
 
