@@ -33,6 +33,11 @@ module VagrantPlugins
         Cap::Linux::FixNetConfig
       end
 
+      guest_capability(:linux, :nic_mac_addresses) do
+        require_relative "vagrant-hypervnet/cap/linux/nic_mac_addresses"
+        Cap::Linux::NicMacAddresses
+      end      
+
       guest_capability(:windows, :rsync_installed) do        
         require_relative "vagrant-hypervnet/cap/windows/rsync"
         Cap::Windows::RSync

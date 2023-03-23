@@ -11,7 +11,16 @@ module VagrantPlugins
         end
 
         def call(env)
-          @logger.info("Disabling built-in Hyper-V provider network configure...")          
+          @logger.info("Disabling built-in Hyper-V provider network configure...")       
+          
+          
+          env[:machine].config.vm.networks.each do |type, options|
+            if options.key?(:bridge)
+              bridge = options.delete(:bridge)
+              options[:hyperv__bridge] = bridge
+            end
+          end
+
           sentinel = env[:machine].data_dir.join("action_configure")
           
           # Create the sentinel

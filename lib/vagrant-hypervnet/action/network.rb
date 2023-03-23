@@ -1,6 +1,5 @@
 require "ipaddr"
 require "log4r"
-#require "debug"
 
 require "vagrant/util/scoped_hash_override"
 
@@ -20,16 +19,13 @@ module VagrantPlugins
         end
 
         def call(env)
-          #binding.break
           @env = env
           @driver = Driver.new(env[:machine].id)
 
-          # Get the list of network adapters from the configuration
           network_adapters_config = env[:machine].config.hypervnet.network_adapters.dup
 
           @logger.info("Determining network adapters required for high-level configuration...")          
           env[:machine].config.vm.networks.each do |type, options|
-            # We only handle private and public networks
             next if type != :private_network && type != :public_network
 
             options = scoped_hash_override(options, :hyperv)            
@@ -49,7 +45,6 @@ module VagrantPlugins
               end
             end
             
-            # Configure it
             data = nil
             if type == :private_network
               if options[:private]
@@ -61,7 +56,6 @@ module VagrantPlugins
               data = [:external, options]
             end
             
-            # Store it!
             @logger.info(" -- Slot #{network_adapters_config.length}: #{data[0]}")
             network_adapters_config << data
           end
@@ -75,23 +69,19 @@ module VagrantPlugins
 
             @logger.info("Network #{index}. Type: #{type}.")
 
-            # Get the normalized configuration for this type
             config = send("#{type}_config", options)
             @logger.debug("Normalized configuration: #{config.inspect}")
 
-            # Get the Hyperv adapter configuration
             adapter = send("#{type}_adapter", config)
             adapters << adapter
             @logger.debug("Adapter configuration: #{adapter.inspect}")
 
-             # Get the network configuration
             network = send("#{type}_network_config", config)
             network[:auto_config] = config[:auto_config]
             networks << network
           end
 
           if !adapters.empty?
-            # Enable the adapters
             @logger.info("Enabling adapters...")
             env[:ui].output(I18n.t("vagrant_hypervnet.network.preparing"))
             adapters.each.with_index(0) do |adapter, index|
@@ -107,15 +97,22 @@ module VagrantPlugins
             enable_adapters(adapters)
           end          
 
-          # Continue the middleware chain.
           @app.call(env)
 
-          # If we have networks to configure, then we configure it now, since
-          # that requires the machine to be up and running.
           if !adapters.empty? && !networks.empty?
-            assign_interface_numbers(networks, adapters)
 
-            # Only configure the networks the user requested us to configure
+            guest_adapters = {}
+            if env[:machine].guest.capability?(:nic_mac_addresses)
+              nic_mac_addresses = env[:machine].guest.capability(:nic_mac_addresses)
+              @logger.info("Guest NIC MAC-addresses: #{nic_mac_addresses.inspect}")
+              nic_mac_addresses.each.with_index(0) do |iface, index|
+                guest_adapters[iface[:mac_address]] = index
+              end
+              @logger.info("Guest Adapters map: #{guest_adapters.inspect}")
+            end
+
+            assign_interface_numbers(networks, adapters, guest_adapters)
+
             networks_to_configure = networks.select { |n| n[:auto_config] }
             if !networks_to_configure.empty?
               env[:ui].info I18n.t("vagrant_hypervnet.network.configuring")
@@ -288,47 +285,35 @@ module VagrantPlugins
             
         def enable_adapters(adapters)
           vm_adapters = @driver.read_vm_network_adapters
-          adapters.each do |adapter|           
-            vm_adapter = vm_adapters.find{|vm_adapter|         
-              !vm_adapter.has_key?(:switch) || vm_adapter[:switch] == adapter[:switch]}
-            if !vm_adapter
-              @logger.info("Adapter not found. Creating if we can.")
-              vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
-              @logger.info("Created adapter: #{vm_adapter[:id]}")
+          adapters.each.with_index(0) do |adapter, index|   
+            if index < vm_adapters.length
+              vm_adapter = vm_adapters[index]
+              @logger.info("Connecting adapter #{vm_adapter.inspect} to switch #{adapter[:switch]}")
+              @driver.connect_vm_adapter(vm_adapter[:id], adapter[:switch])
             else
-              vm_adapter[:switch] == adapter[:switch]
-              vm_adapters.delete(vm_adapter)
+              vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
+              @logger.info("Created adapter: #{vm_adapter.inspect}")
             end
-            @logger.info("Connecting adapter #{vm_adapter[:id]} to switch #{vm_adapter[:switch]}")
-            @driver.connect_vm_adapter(vm_adapter[:id], vm_adapter[:switch])
           end
 
-          vm_adapters.each do |vm_adapter|
-            @logger.info("Removing adapter: #{vm_adapter[:id]}")
-            @driver.remove_vm_adapter(vm_adapter[:id])
+          if vm_adapters.length > adapters.length
+            for index in adapters.length .. vm_adapters.length-1 
+              vm_adapter = vm_adapters[index]
+              @logger.info("Removing adapter: #{vm_adapter.inspect}")
+              @driver.remove_vm_adapter(vm_adapter[:id])
+            end
           end
         end
 
-        # Assigns the actual interface number of a network based on the
-        # enabled NICs on the virtual machine.
-        #
-        # This interface number is used by the guest to configure the
-        # NIC on the guest VM.
-        #
-        # The networks are modified in place by adding an ":interface"
-        # field to each.
-        def assign_interface_numbers(networks, adapters)
-
+        def assign_interface_numbers(networks, adapters, guest_adapters)
           vm_adapters = @driver.read_vm_network_adapters
           vm_adapters.each.with_index(0) do |vm_adapter, index|
-            vm_adapter[:interface] = index
-          end
-
-          adapters.each_index do |i|
-            adapter = adapters[i]
-            network = networks[i]
-            vm_adapter = vm_adapters.find{|vm_adapter| vm_adapter[:switch] == adapter[:switch]}
-            network[:interface] = vm_adapter[:interface]
+            if guest_adapters && guest_adapters.key?(vm_adapter[:mac_address])
+              networks[index][:interface] = guest_adapters[vm_adapter[:mac_address]]
+            else
+              networks[index][:interface] = index
+            end
+            @logger.info("Mapping vm adapter #{index} to guest adapter #{networks[index][:interface]}")
           end
         end
       end
