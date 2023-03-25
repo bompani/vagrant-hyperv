@@ -4,7 +4,7 @@ module VagrantPlugins
   module HyperVNet
     module Cap
       module Linux
-        class FixNetConfig
+        class PreConfigureNetworks
           extend Vagrant::Util::GuestInspection::Linux    
 
           def self.pre_configure_networks(machine)

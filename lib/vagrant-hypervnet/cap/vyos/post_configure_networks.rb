@@ -4,7 +4,7 @@ module VagrantPlugins
   module HyperVNet
     module Cap
       module Vyos
-        class FixNetConfig  
+        class PostConfigureNetworks  
           
           @@logger = Log4r::Logger.new("vagrant::hypervnet::guest::vyos::post_configure_networks")   
 
