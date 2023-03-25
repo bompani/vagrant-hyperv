@@ -28,9 +28,14 @@ module VagrantPlugins
         Cap
       end
 
-      guest_capability(:linux, :fix_net_config) do
-        require_relative "vagrant-hypervnet/cap/linux/fix_net_config"
+      guest_capability(:linux, :pre_configure_networks) do
+        require_relative "vagrant-hypervnet/cap/linux/pre_configure_networks"
         Cap::Linux::FixNetConfig
+      end
+
+      guest_capability(:vyos, :post_configure_networks) do
+        require_relative "vagrant-hypervnet/cap/vyos/fix_net_config"
+        Cap::Vyos::FixNetConfig
       end
 
       guest_capability(:linux, :nic_mac_addresses) do

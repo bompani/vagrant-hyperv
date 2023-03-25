@@ -106,7 +106,8 @@ module VagrantPlugins
               nic_mac_addresses = env[:machine].guest.capability(:nic_mac_addresses)
               @logger.info("Guest NIC MAC-addresses: #{nic_mac_addresses.inspect}")
               nic_mac_addresses.each.with_index(0) do |iface, index|
-                guest_adapters[iface[:mac_address]] = index
+                mac_address = iface[:mac_address].upcase.delete(':')
+                guest_adapters[mac_address] = index
               end
               @logger.info("Guest Adapters map: #{guest_adapters.inspect}")
             end
@@ -128,10 +129,13 @@ module VagrantPlugins
                   netmask: network[:netmask].to_s
                 ))
               end
-              if env[:machine].guest.capability?(:fix_net_config)
-                env[:machine].guest.capability(:fix_net_config)
+              if env[:machine].guest.capability?(:pre_configure_networks)
+                env[:machine].guest.capability(:pre_configure_networks)
               end
               env[:machine].guest.capability(:configure_networks, networks_to_configure)
+              if env[:machine].guest.capability?(:post_configure_networks)
+                env[:machine].guest.capability(:post_configure_networks)
+              end              
             end
           end                    
         end
@@ -309,8 +313,10 @@ module VagrantPlugins
           vm_adapters = @driver.read_vm_network_adapters
           vm_adapters.each.with_index(0) do |vm_adapter, index|
             if guest_adapters && guest_adapters.key?(vm_adapter[:mac_address])
+              @logger.info("Found guest adapter #{vm_adapter[:mac_address]}")
               networks[index][:interface] = guest_adapters[vm_adapter[:mac_address]]
             else
+              @logger.info("Guest adapter #{vm_adapter[:mac_address]} not found")
               networks[index][:interface] = index
             end
             @logger.info("Mapping vm adapter #{index} to guest adapter #{networks[index][:interface]}")

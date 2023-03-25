@@ -7,7 +7,7 @@ module VagrantPlugins
         class FixNetConfig
           extend Vagrant::Util::GuestInspection::Linux    
 
-          def self.fix_net_config(machine)
+          def self.pre_configure_networks(machine)
             if netplan?(machine.communicate)
               yaml = ""
               machine.communicate.sudo("netplan get 'ethernets'") do |type, data|
