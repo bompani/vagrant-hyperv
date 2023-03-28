@@ -53,6 +53,11 @@ module VagrantPlugins
         Cap::Windows::RSync
       end
 
+      guest_capability(:windows, :rsync_scrub_guestpath) do
+        require_relative "vagrant-hypervnet/cap/windows/rsync"
+        Cap::Windows::RSync
+      end
+
       guest_capability(:windows, :sshd_installed) do        
         require_relative "vagrant-hypervnet/cap/windows/sshd"
         Cap::Windows::Sshd
