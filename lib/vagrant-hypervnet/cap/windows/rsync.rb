@@ -47,7 +47,7 @@ module VagrantPlugins
           def self.rsync_scrub_guestpath( machine, opts )
             if opts[:guestpath] =~ /^([a-zA-Z]):/
               opts[:guestpath].gsub( /^([a-zA-Z]):/, '/c/\1' )
-            elsif !opts[:guestpath] =~ /^([a-zA-Z])\//
+            elsif opts[:guestpath] !~ /^[\/\\][a-zA-Z][\/\\]/
               "/c/#{opts[:guestpath]}"
             else
               opts[:guestpath] 
