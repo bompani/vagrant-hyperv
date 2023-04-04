@@ -1,29 +1,54 @@
-# Vagrant::Hypervnet
+# vagrant-hypervnet
 
-Welcome to your new gem! In this directory, you'll find the files you need to be able to package up your Ruby library into a gem. Put your Ruby code in the file `lib/vagrant/hypervnet`. To experiment with that code, run `bin/console` for an interactive prompt.
+*vagrant-hypervnet* is a [Vagrant](http://vagrantup.com) plugin which extends Hyper-V provider implementing networks creation and
+configuration.
 
-TODO: Delete this and the text above, and describe your gem
+[![Gem Version](https://badge.fury.io/rb/vagrant-hypervnet.svg)](https://badge.fury.io/rb/vagrant-hypervnet)
+[![Downloads](http://ruby-gem-downloads-badge.herokuapp.com/vagrant-hypervnet?type=total&style=flat)](https://rubygems.org/gems/vagrant-hypervnet)
+
+## Features
+
+* Create Hyper-V switches. 
+* Add an host IP address for each private network
+* Add a and configure a guest network adapter for each configured public or private network 
+* Optionally install and configure SSH server in windows guests.
+* Optionally install and configure rsync ([MSYS2](https://www.msys2.org/)) in windows guests.
 
 ## Installation
 
-Install the gem and add to the application's Gemfile by executing:
+```
+$ vagrant plugin install vagrant-hypervnet
+```
 
-    $ bundle add vagrant-hypervnet
+## Configuration
 
-If bundler is not being used to manage dependencies, install the gem by executing:
+```ruby
+Vagrant.configure("2") do |config|
+  
+  # install OpenSSH Server (Windows Capability) and insert vagrant ssh key on windows guests 
+  config.hypervnet.install_ssh_server = true
+  
+  # install MSYS2 and rsync on windows guests
+  config.hypervnet.install_rsync = true
+end
+```
 
-    $ gem install vagrant-hypervnet
+### Config options
+
+* `install_ssh_server` (Boolean, default: `true`): install OpenSSH Server (Windows Capability) and insert vagrant ssh key on windows guests.
+* `install_rsync` (Boolean, default: `true`): install MSYS2 and rsync on windows guests.
 
 ## Usage
 
-TODO: Write usage instructions here
-
-## Development
-
-After checking out the repo, run `bin/setup` to install dependencies. You can also run `bin/console` for an interactive prompt that will allow you to experiment.
-
-To install this gem onto your local machine, run `bundle exec rake install`. To release a new version, update the version number in `version.rb`, and then run `bundle exec rake release`, which will create a git tag for the version, push git commits and the created tag, and push the `.gem` file to [rubygems.org](https://rubygems.org).
+```
+$ vagrant init
+$ vagrant up --provider=hyperv
+```
 
 ## Contributing
 
-Bug reports and pull requests are welcome on GitHub at https://github.com/[USERNAME]/vagrant-hypervnet.
+1. Fork it
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create new Pull Request
