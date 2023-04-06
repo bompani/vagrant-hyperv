@@ -83,7 +83,7 @@ Vagrant.configure("2") do |config|
       end
 
       node["synced_folder"].each do |folder|
-        node_config.vm.synced_folder folder["src"], folder["dst"], type: "rsync", rsync__exclude: folder["exclude"], disabled: true
+        node_config.vm.synced_folder folder["src"], folder["dst"], type: "rsync", rsync__exclude: folder["exclude"]
       end
 
       node_config.vm.provider "hyperv" do |p|

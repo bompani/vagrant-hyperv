@@ -294,7 +294,7 @@ module VagrantPlugins
         end
 
         def nat_adapter(config)
-          switch = @driver.find_switch_by_name("Default Switch")
+          switch = @driver.find_switch_by_name(@env[:machine].config.hypervnet.default_switch)
           return {
             type:      :nat,
             switch:    switch[:name],
