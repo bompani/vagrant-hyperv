@@ -2,14 +2,11 @@
 
 param (
     [parameter (Mandatory=$true)]
-    [string]$VmId,
-    [parameter (Mandatory=$true)]
-    [string]$SwitchName 
-
+    [string]$VmId
 )
 
 $vm = Get-VM -Id $VmId
-$adapter = Add-VMNetworkAdapter -PassThru -VM $vm -SwitchName $SwitchName |
-    Select-Object -Property "Name", "Id", "SwitchName", "MacAddress"
+$adapter = Add-VMNetworkAdapter -PassThru -VM $vm |
+    Select-Object -Property "Name", "Id"
 
 Write-OutputMessage $(ConvertTo-JSON $adapter)

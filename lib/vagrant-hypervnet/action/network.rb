@@ -160,6 +160,7 @@ module VagrantPlugins
               return {
                 type:        :external,
                 switch:      switch[:name],
+                switch_id:   switch[:id]
               }
             else
               raise Errors::NetworkNotFound, name: config[:bridge]
@@ -206,7 +207,25 @@ module VagrantPlugins
           if !switch
             @logger.info("Switch not found. Creating if we can.")
             if !config[:bridge]
-              config[:bridge] = netaddr.to_s
+            index = 0
+              loop do
+                config[:bridge] = netaddr.to_s + (index > 0 ? "_#{index}" : "")
+                exists = @driver.find_switch_by_name(config[:bridge])
+                if !exists
+                  break
+                else
+                  index += 1
+                end
+              end
+            end
+
+            routes = @driver.get_routes
+            @logger.debug("Search if subnet #{netaddr.to_s} is already defined in host: #{routes.inspect} ")
+            existing_route = routes.find{|range| range.include?(netaddr)}
+            if existing_route
+              raise Errors::NetworkAddressOverlapping,
+                address: netaddr,
+                subnet: existing_route
             end
 
             # Create a new switch
@@ -216,6 +235,7 @@ module VagrantPlugins
 
           return {
             switch:      switch[:name],
+            switch_id:   switch[:id],
             type:        :internal
           }
         end
@@ -255,6 +275,7 @@ module VagrantPlugins
           return {
             type:        :private,
             switch:      switch[:name],
+            switch_id:   switch[:id]
           }
         end
 
@@ -273,9 +294,11 @@ module VagrantPlugins
         end
 
         def nat_adapter(config)
+          switch = @driver.find_switch_by_name("Default Switch")
           return {
-            type:    :nat,
-            switch:  "Default Switch"
+            type:      :nat,
+            switch:    switch[:name],
+            switch_id: switch[:id]
           }
         end
 
@@ -292,12 +315,12 @@ module VagrantPlugins
           adapters.each.with_index(0) do |adapter, index|   
             if index < vm_adapters.length
               vm_adapter = vm_adapters[index]
-              @logger.info("Connecting adapter #{vm_adapter.inspect} to switch #{adapter[:switch]}")
-              @driver.connect_vm_adapter(vm_adapter[:id], adapter[:switch])
             else
-              vm_adapter = @driver.add_vm_adapter(adapter[:switch])              
+              vm_adapter = @driver.add_vm_adapter              
               @logger.info("Created adapter: #{vm_adapter.inspect}")
             end
+            @logger.info("Connecting adapter #{vm_adapter.inspect} to switch #{adapter[:switch]}")
+            @driver.connect_vm_adapter(vm_adapter[:id], adapter[:switch_id])
           end
 
           if vm_adapters.length > adapters.length

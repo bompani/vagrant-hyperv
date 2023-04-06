@@ -63,11 +63,19 @@ module VagrantPlugins
       def find_switch_by_name(name)
         data = execute(:get_switch_by_name, Name: name)
         if data && data.kind_of?(Array)
-          data = data[0]
+          if data.length > 1
+            raise Errors::NetworkNotUnique,
+            networks: data.inspect
+          elsif data.length == 1 
+            data = data[0]
+          else
+            data = nil          
+          end
         end
 
         if data
           switch = {}
+          switch[:id] = data["Id"]   
           switch[:name] = data["Name"]          
           switch[:type] = data["SwitchType"]
         end
@@ -78,11 +86,19 @@ module VagrantPlugins
       def find_switch_by_address(ip_address, prefix_length)        
         data = execute(:get_switch_by_address, DestinationPrefix: "#{ip_address}/#{prefix_length}")
         if data && data.kind_of?(Array)
-          data = data[0]
+          if data.length > 1
+            raise Errors::NetworkNotUnique,
+            networks: data.inspect
+          elsif data.length == 1 
+            data = data[0]
+          else
+            data = nil          
+          end
         end
 
         if data
           switch = {}
+          switch[:id] = data["Id"]   
           switch[:name] = data["Name"]          
           switch[:type] = data["SwitchType"]
         end
@@ -118,13 +134,37 @@ module VagrantPlugins
           data.each do |value|
             adapter = {}
             adapter[:id] = value["Id"]
-            adapter[:name] = value["Name"]
+            adapter[:name] = value["Name"]            
+            adapter[:switch_id] = value["SwitchId"]
             adapter[:switch] = value["SwitchName"]
             adapter[:mac_address] = value["MacAddress"]
             adapters << adapter
           end
         end        
         adapters
+      end
+
+      def get_routes
+        routes = []
+        data = execute(:get_routes)
+        if data
+          if data.kind_of?(Hash)
+            data = [] << data
+          end   
+          data.each do |value|
+            begin
+              netaddr = IPAddr.new(value["DestinationPrefix"])
+              if netaddr.prefix > 0
+                routes << netaddr
+              end
+            rescue IPAddr::Error => e
+              raise Vagrant::Errors::NetworkAddressInvalid,
+                address: data["DestinationPrefix"], mask: "",
+                error: e.message
+            end
+          end
+        end        
+        routes
       end
 
       def create_switch(type, name, ip_address = nil, prefix_length = nil)
@@ -137,6 +177,7 @@ module VagrantPlugins
 
         if data
           switch = {}
+          switch[:id] = data["Id"]   
           switch[:name] = data["Name"]          
           switch[:type] = data["SwitchType"]
         end
@@ -144,14 +185,12 @@ module VagrantPlugins
         switch
       end
 
-      def add_vm_adapter(switch)
-        data = execute(:add_vm_adapter, VmId: @vmId, SwitchName: switch)
+      def add_vm_adapter
+        data = execute(:add_vm_adapter, VmId: @vmId)
 
         adapter = {}
         adapter[:id] = data["Id"]
         adapter[:name] = data["Name"]
-        adapter[:switch] = data["SwitchName"]
-        adapter[:mac_address] = data["MacAddress"]
    
         adapter        
       end
@@ -160,8 +199,8 @@ module VagrantPlugins
         execute(:remove_vm_adapter, VmId: @vmId, Id: id)        
       end
 
-      def connect_vm_adapter(id, switch)
-        execute(:connect_vm_adapter, VmId: @vmId, Id: id, SwitchName: switch)        
+      def connect_vm_adapter(id, switch_id)
+        execute(:connect_vm_adapter, VmId: @vmId, Id: id, SwitchId: switch_id)        
       end
 
       protected

@@ -20,7 +20,7 @@ param (
     New-NetIPAddress -IPAddress $IPAddress -PrefixLength $PrefixLength -InterfaceIndex $adapter.ifIndex
  }
    
-Write-OutputMessage $($switch | Select-Object -Property Name,
+Write-OutputMessage $($switch | Select-Object -Property Name, Id,
    @{Name='SwitchType';Expression={"$($_.SwitchType)"}},
    @{Name='NetAdapter';Expression={$switch_adapter[$_.Name]}} |
    ConvertTo-JSON)

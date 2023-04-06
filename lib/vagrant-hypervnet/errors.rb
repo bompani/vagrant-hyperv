@@ -22,6 +22,14 @@ module VagrantPlugins
         error_key(:network_address_invalid)
       end
 
+      class NetworkAddressOverlapping < HyperVNetError
+        error_key(:network_address_overlapping)
+      end      
+
+      class NetworkNotUnique < HyperVNetError
+        error_key(:network_not_unique)
+      end      
+
       class NetworkNotFound < HyperVNetError
         error_key(:network_not_found)
       end

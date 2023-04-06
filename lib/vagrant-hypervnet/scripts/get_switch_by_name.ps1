@@ -8,7 +8,7 @@ param (
  $switches = @()
 
  foreach($switch in Get-VMSwitch | Where-Object -Property Name -EQ -Value  $Name |
-    Select-Object -Property Name,
+    Select-Object -Property Name, Id,
         @{Name='SwitchType';Expression={"$($_.SwitchType)"}},
         @{Name='NetAdapter';Expression={$switch_adapter[$_.Name]}}) {
             $switches += $switch

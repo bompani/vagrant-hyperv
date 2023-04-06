@@ -62,6 +62,16 @@ en:
           Address: %{address}
           Netmask: %{mask}
           Error: %{error}
+      network_address_overlapping: |-
+        The IP address configured for the host-only network is overlapping
+        a subnet already defined. Please update the address used and run the command again.
+
+          Address: %{address}
+          Subnet: %{subnet}
+      network_not_unique: |-
+        The specified host network match morte then one item:
+        
+          Networks: '%{networks}.'        
       network_not_found: |-
         The specified host network could not be found: '%{name}.'
         If the name specification is removed, Vagrant will create a new
