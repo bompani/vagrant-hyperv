@@ -4,6 +4,8 @@ en:
       Adapter %{adapter}: %{type} %{switch}
     network_config: |-
       network %{network} -> %{interface}: %{type} %{ip}/%{netmask}
+    folder_sync: |-
+      Synchronizing synchronized folders...
     ssh:
       install: |-
         Installing OpenSSH server to the VM...

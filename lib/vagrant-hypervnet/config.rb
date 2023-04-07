@@ -8,12 +8,14 @@ module VagrantPlugins
 
       attr_accessor :install_ssh_server
       attr_accessor :install_rsync
+      attr_accessor :folder_sync_on_provision
       attr_accessor :default_switch
 
       def initialize        
         @network_adapters = []
         @install_ssh_server = UNSET_VALUE
         @install_rsync = UNSET_VALUE
+        @folder_sync_on_provision = UNSET_VALUE
         @default_switch = UNSET_VALUE
   
         network_adapter(:nat)
@@ -26,6 +28,7 @@ module VagrantPlugins
       def finalize!
         @install_ssh_server = true if @install_ssh_server == UNSET_VALUE
         @install_rsync = true if @install_rsync == UNSET_VALUE
+        @folder_sync_on_provision = true if @folder_sync_on_provision == UNSET_VALUE
         @default_switch = "Default Switch" if @default_switch == UNSET_VALUE
       end
 

@@ -83,6 +83,7 @@ module VagrantPlugins
           hook.before(VagrantPlugins::HyperV::Action::StartInstance, Action.network)
         end
         hook.before(Vagrant::Action::Builtin::SyncedFolders, Action.ssh_server)
+        hook.before(Vagrant::Action::Builtin::Provision, Action.folder_sync)        
       end
     end
   end
