@@ -25,18 +25,41 @@ $ vagrant plugin install vagrant-hypervnet
 ```ruby
 Vagrant.configure("2") do |config|
   
-  # install OpenSSH Server (Windows Capability) and insert vagrant ssh key on windows guests 
+  # installs OpenSSH Server (Windows Capability) and inserts vagrant ssh key on windows guests 
   config.hypervnet.install_ssh_server = true
   
-  # install MSYS2 and rsync on windows guests
+  # installs MSYS2 and rsync on windows guests
   config.hypervnet.install_rsync = true
+
+  # enablee synced_folder synchronization before provision
+  config.hypervnet.folder_sync_on_provision = true
+
+  # Hyper-V switch connected to vagrant management interface
+  config.hypervnet.default_switch = "Default Switch"
+
+  # Hyper-V internal network: a new switch is created if can't find an existent switch with the specified subnet (192.168.100.100/24)
+  config.vm.network :private_network, ip: "192.168.100.101", netmask: "255.255.255.0"
+
+# Hyper-V internal network: a new switch is created if can't find an existent switch whith the specified name ("my-internal-network") 
+  config.vm.network :private_network, ip: "192.168.102.101", netmask: "255.255.255.0" hyperv__bridge: "my-internal-network"  
+
+  # Hyper-V private network: a new switch is created if can't find an existent switch whith the specified name ("my-private-network") 
+  config.vm.network :private_network, ip: "192.168.101.101", netmask: "255.255.255.0" hyperv__private: "my-private-network"
+
+  # Hyper-V external network: the existent switch whith the specified name ("my-external-network") is connected to this vm adapter
+  config.vm.network :public_network, ip: "192.168.102.101", netmask: "255.255.255.0" hyperv__bridge: "my-external-network"
+
+  # rsync synched folder
+  config.vm.synced_folder ".", "/vagrant", type: "rsync", rsync__exclude: ".git"
 end
 ```
 
 ### Config options
 
-* `install_ssh_server` (Boolean, default: `true`): install OpenSSH Server (Windows Capability) and insert vagrant ssh key on windows guests.
-* `install_rsync` (Boolean, default: `true`): install MSYS2 and rsync on windows guests.
+* `install_ssh_server` (Boolean, default: `true`): installs OpenSSH Server (Windows Capability) and inserts vagrant ssh key on windows guests.
+* `install_rsync` (Boolean, default: `true`): installs MSYS2 and rsync on windows guests if an rsync synced folder is defined .
+* `folder_sync_on_provision` (Boolean, default: `true`): if enabled invokes synced folders synchronization before provision.
+* `default_switch` (String, default: `Default Switch`): Hyper-V switch connected to interface used by vagrant to communicate with the vm.
 
 ## Usage
 

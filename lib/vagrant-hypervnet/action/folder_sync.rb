@@ -11,6 +11,9 @@ module VagrantPlugins
         end
 
         def call(env)
+          # Continue the middleware chain.
+          @app.call(env)
+
           machine = env[:machine]
           if(machine.config.hypervnet.folder_sync_on_provision)
             env[:ui].output(I18n.t("vagrant_hypervnet.folder_sync"))
@@ -18,9 +21,6 @@ module VagrantPlugins
             callable.use Vagrant::Action::Builtin::SyncedFolders
             machine.action_raw(:sync_folders, callable, env)
           end
-
-          # Continue the middleware chain.
-          @app.call(env)
         end
       end
     end
