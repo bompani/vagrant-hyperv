@@ -5,5 +5,11 @@ param (
     [string]$Id
 )
 
-$vm = Get-VM -Id $VmId
-Get-VMNetworkAdapter -VM $vm | Where-Object -Property Id -EQ -Value $Id | Remove-VMNetworkAdapter
+try {
+    $vm = Get-VM -Id $VmId
+    Get-VMNetworkAdapter -VM $vm | Where-Object -Property Id -EQ -Value $Id | Remove-VMNetworkAdapter
+}
+catch {
+    Write-ErrorMessage "Failed to remove adapter ${Id} from VM ${VmId}: ${PSItem}"
+    exit 1            
+ }

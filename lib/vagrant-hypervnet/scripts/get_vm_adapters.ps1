@@ -4,8 +4,15 @@ param (
     [parameter (Mandatory=$true)]
     [string]$VmId
 )
-$vm = Get-VM -Id $VmId
-$adapters = Get-VMNetworkAdapter -VM $vm |
+
+try {
+    $vm = Get-VM -Id $VmId
+    $adapters = Get-VMNetworkAdapter -VM $vm |
     Select-Object -Property "Name", "Id", "SwitchName", "SwitchId", "MacAddress"
+}
+catch {
+    Write-ErrorMessage "Failed to get adapters of VM ${VmId}: ${PSItem}"
+    exit 1            
+}
 
 Write-OutputMessage $(ConvertTo-JSON $adapters)

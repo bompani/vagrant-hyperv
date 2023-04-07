@@ -12,12 +12,24 @@ param (
 
  )
 
- $switch = New-VMSwitch -Name $Name -SwitchType $SwitchType
+ try {
+   $switch = New-VMSwitch -Name $Name -SwitchType $SwitchType
+ }
+ catch {
+   Write-ErrorMessage "Failed to create switch ${Name}: ${PSItem}"
+   exit 1
+ }
 
  if($IPAddress) {
-    $vmAdapter = Get-VMNetworkAdapter -ManagementOS -SwitchName $switch.Name
-    $adapter = Get-NetAdapter | Where-Object -Property DeviceId -EQ -Value $vmAdapter.DeviceId
-    New-NetIPAddress -IPAddress $IPAddress -PrefixLength $PrefixLength -InterfaceIndex $adapter.ifIndex
+   try {
+      $vmAdapter = Get-VMNetworkAdapter -ManagementOS | Where-Object -Property SwitchId -EQ -Value  $switch.Id
+      $adapter = Get-NetAdapter | Where-Object -Property DeviceId -EQ -Value $vmAdapter.DeviceId
+      New-NetIPAddress -IPAddress $IPAddress -PrefixLength $PrefixLength -InterfaceIndex $adapter.ifIndex         
+   }
+   catch {
+      Write-ErrorMessage "Failed to add IP address ${IPAddress} for switch ${Name}: ${PSItem}"
+      exit 1            
+   }
  }
    
 Write-OutputMessage $($switch | Select-Object -Property Name, Id,
